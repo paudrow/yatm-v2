@@ -3,12 +3,6 @@
 version = 3
 
 [[package]]
-name = "cartesian"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0ed5b66eccb9a1fe9ff1489ea73e43016c0b500160ae9ecd089644458ad495f"
-
-[[package]]
 name = "common"
 version = "0.1.0"
 
@@ -136,10 +130,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab4c90930b95a82d00dc9e9ac071b4991924390d46cbd0dfe566148667605e4b"
 
 [[package]]
-name = "yatm-v2"
+name = "yatm_v2"
 version = "0.1.0"
 dependencies = [
- "cartesian",
  "itertools",
  "serde",
  "serde_yaml",

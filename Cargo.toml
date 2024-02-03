@@ -1,3 +1,3 @@
 [workspace]
 resolver = "2"
-members = ["src/common", "src/yatm-v2"]
+members = ["src/common", "src/yatm_v2"]
