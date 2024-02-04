@@ -1,36 +1,34 @@
-mod requirement;
-mod test_case;
-mod test_cases_builder;
+use common::types::{Requirement, Step, Action, Expect, Terminal, SetSteps, Filter, TestCasesBuilder, TestCase};
 use std::collections::HashMap;
-
-use itertools::Itertools;
 
 use serde_yaml;
 
+mod utils;
+
 fn demo_requirements() {
-    let r = requirement::Requirement {
+    let r = Requirement {
         name: "Test requirement".to_string(),
         description: "My description".to_string(),
         labels: vec!["label1".to_string(), "label2".to_string()],
-        steps: vec![requirement::Step {
+        steps: vec![Step {
             action: vec![
-                requirement::Action::StdIn(requirement::Terminal {
+                Action::StdIn(Terminal {
                     number: 1,
                     text: "Test".to_string(),
                 }),
-                requirement::Action::Image("image".to_string()),
-                requirement::Action::Describe("description".to_string()),
-                requirement::Action::StdIn(requirement::Terminal {
+                Action::Image("image".to_string()),
+                Action::Describe("description".to_string()),
+                Action::StdIn(Terminal {
                     number: 2,
                     text: "Test".to_string(),
                 }),
             ],
             expect: vec![
-                requirement::Expect::StdOut(requirement::Terminal {
+                Expect::StdOut(Terminal {
                     number: 1,
                     text: "Test".to_string(),
                 }),
-                requirement::Expect::StdErr(requirement::Terminal {
+                Expect::StdErr(Terminal {
                     number: 1,
                     text: "std err".to_string(),
                 }),
@@ -41,24 +39,24 @@ fn demo_requirements() {
     let s = serde_yaml::to_string(&r).unwrap();
     println!("{}", s);
 
-    let r2: requirement::Requirement = serde_yaml::from_str(&s).unwrap();
+    let r2: Requirement = serde_yaml::from_str(&s).unwrap();
     println!("{:?}", r2);
 }
 
 fn demo_test_cases_builder() {
-    let t = test_cases_builder::TestCasesBuilder {
+    let t = TestCasesBuilder {
         name: "Test test case".to_string(),
         description: "My description".to_string(),
         labels: vec!["label1".to_string(), "label2".to_string()],
         set: vec![
-            test_cases_builder::SetSteps::Include(test_cases_builder::Filter {
-                label: Some(vec!["label1".to_string()]),
-                name: None,
+            SetSteps::Include(Filter {
+                all_labels: Some(vec!["label1".to_string()]),
+                any_names: None,
                 negate: false,
             }),
-            test_cases_builder::SetSteps::Exclude(test_cases_builder::Filter {
-                label: Some(vec!["label2".to_string()]),
-                name: Some(vec!["name1".to_string(), "name2".to_string()]),
+            SetSteps::Exclude(Filter {
+                all_labels: Some(vec!["label2".to_string()]),
+                any_names: Some(vec!["name1".to_string(), "name2".to_string()]),
                 negate: false,
             }),
         ],
@@ -79,54 +77,54 @@ fn demo_test_cases_builder() {
     let s = serde_yaml::to_string(&t).unwrap();
     println!("{}", s);
 
-    let t2: test_cases_builder::TestCasesBuilder = serde_yaml::from_str(&s).unwrap();
+    let t2: TestCasesBuilder = serde_yaml::from_str(&s).unwrap();
     println!("{:?}", t2);
 }
 
 fn demo_test_case() {
-    let t = test_case::TestCase {
-        requirement: requirement::Requirement {
+    let t = TestCase {
+        requirement: Requirement {
             name: "Test requirement".to_string(),
             description: "My description".to_string(),
             labels: vec!["label1".to_string(), "label2".to_string()],
-            steps: vec![requirement::Step {
+            steps: vec![Step {
                 action: vec![
-                    requirement::Action::StdIn(requirement::Terminal {
+                    Action::StdIn(Terminal {
                         number: 1,
                         text: "Test".to_string(),
                     }),
-                    requirement::Action::Image("image".to_string()),
-                    requirement::Action::Describe("description".to_string()),
-                    requirement::Action::StdIn(requirement::Terminal {
+                    Action::Image("image".to_string()),
+                    Action::Describe("description".to_string()),
+                    Action::StdIn(Terminal {
                         number: 2,
                         text: "Test".to_string(),
                     }),
                 ],
                 expect: vec![
-                    requirement::Expect::StdOut(requirement::Terminal {
+                    Expect::StdOut(Terminal {
                         number: 1,
                         text: "Test".to_string(),
                     }),
-                    requirement::Expect::StdErr(requirement::Terminal {
+                    Expect::StdErr(Terminal {
                         number: 1,
                         text: "std err".to_string(),
                     }),
                 ],
             }],
         },
-        builder_used: test_cases_builder::TestCasesBuilder {
+        builder_used: TestCasesBuilder {
             name: "Test test case".to_string(),
             description: "My description".to_string(),
             labels: vec!["label1".to_string(), "label2".to_string()],
             set: vec![
-                test_cases_builder::SetSteps::Include(test_cases_builder::Filter {
-                    label: Some(vec!["label1".to_string()]),
-                    name: None,
+                SetSteps::Include(Filter {
+                    all_labels: Some(vec!["label1".to_string()]),
+                    any_names: None,
                     negate: false,
                 }),
-                test_cases_builder::SetSteps::Exclude(test_cases_builder::Filter {
-                    label: Some(vec!["label2".to_string()]),
-                    name: Some(vec!["name1".to_string(), "name2".to_string()]),
+                SetSteps::Exclude(Filter {
+                    all_labels: Some(vec!["label2".to_string()]),
+                    any_names: Some(vec!["name1".to_string(), "name2".to_string()]),
                     negate: false,
                 }),
             ],
@@ -154,56 +152,13 @@ fn demo_test_case() {
     let s = serde_yaml::to_string(&t).unwrap();
     println!("{}", s);
 
-    let t2: test_case::TestCase = serde_yaml::from_str(&s).unwrap();
+    let t2: TestCase = serde_yaml::from_str(&s).unwrap();
     println!("{:?}", t2);
 }
 
-fn get_cartesian_product(data: HashMap<String, Vec<String>>) -> Vec<HashMap<String, String>> {
-    // Convert the HashMap into a Vec of (key, Vec<value>) pairs
-    let mut items: Vec<(_, _)> = data.into_iter().collect();
-
-    // Sort the items to ensure consistent ordering for the product
-    items.sort_by_key(|t| t.0.clone());
-
-    // Extract the keys and corresponding value iterators
-    let keys: Vec<String> = items.iter().map(|t| t.0.clone()).collect();
-    let value_iters: Vec<_> = items.into_iter().map(|(_, v)| v.into_iter()).collect();
-
-    // Compute the Cartesian product of the value iterators
-    value_iters
-        .into_iter()
-        .multi_cartesian_product()
-        // Map each product to a HashMap
-        .map(|values| {
-            keys.clone()
-                .into_iter()
-                .zip(values)
-                .collect::<HashMap<_, _>>()
-        })
-        .collect()
-}
 
 fn main() {
-    // demo_requirements();
-    // demo_test_cases_builder();
-    // demo_test_case();
-
-    let mut dimensions = HashMap::new();
-    dimensions.insert(
-        "color".to_string(),
-        vec!["red".to_string(), "blue".to_string(), "green".to_string()],
-    );
-    dimensions.insert(
-        "size".to_string(),
-        vec!["small".to_string(), "large".to_string()],
-    );
-    dimensions.insert(
-        "logo".to_string(),
-        vec!["pika".to_string(), "poke".to_string()],
-    );
-
-    let product = get_cartesian_product(dimensions);
-    for p in &product {
-        println!("{:?}", p);
-    }
+    demo_requirements();
+    demo_test_cases_builder();
+    demo_test_case();
 }

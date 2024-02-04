@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Requirement {
     pub name: String,
     pub description: String,
@@ -8,20 +8,20 @@ pub struct Requirement {
     pub steps: Vec<Step>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Step {
     pub action: Vec<Action>,
     pub expect: Vec<Expect>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Action {
     StdIn(Terminal),
     Image(String),
     Describe(String),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Expect {
     StdOut(Terminal),
     StdErr(Terminal),
@@ -29,7 +29,7 @@ pub enum Expect {
     Describe(String),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Terminal {
     pub number: u8,
     pub text: String,
