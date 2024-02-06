@@ -59,5 +59,8 @@ fn main() {
         selected_permutation,
     };
 
-    println!("{:?}", get_github_issue_content(test_case).unwrap().labels);
+    let result = get_github_issue_content(test_case).unwrap();
+    println!("{}", result.title);
+    println!("{}", result.text_body);
+    println!("{:?}", result.labels);
 }

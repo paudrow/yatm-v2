@@ -16,11 +16,14 @@
     {% for action in step.action -%}
         {%- match action -%}
             {% when Action::StdIn with (terminal) %}
-1. StdIn: `{{ terminal.text }}`
+```bash
+# StdIn - terminal {{ terminal.number }}
+{{ terminal.text }}
+```
             {% when Action::Image with (image_path) %}
-1. ![Image]({{ image_path }})
+![Image]({{ image_path }})
             {% when Action::Describe with (description) %}
-1. Description: {{ description }}
+{{ description }}
         {%- endmatch -%}
     {%- endfor %}
 
@@ -28,13 +31,19 @@
     {% for expect in step.expect -%}
         {%- match expect -%}
             {% when Expect::StdOut with (terminal) %}
-1. StdOut: {{ terminal.number }} - {{ terminal.text }}
+```bash
+# StdOut - terminal {{ terminal.number }}
+{{ terminal.text }}
+```
             {% when Expect::StdErr with (terminal) %}
-1. StdErr: {{ terminal.number }} - {{ terminal.text }}
-            {% when Expect::Image with (image) %}
-1. Image: {{ image }}
+```bash
+# StdErr - terminal {{ terminal.number }}
+{{ terminal.text }}
+```
+            {% when Expect::Image with (image_path) %}
+![Image]({{ image_path }})
             {% when Expect::Describe with (description) %}
-1. Description: {{ description }}
+{{ description }}
         {%- endmatch -%}
     {%- endfor -%}
 {%- endfor %}
