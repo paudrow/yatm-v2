@@ -26,6 +26,7 @@ pub enum Action {
     StdIn(Terminal),
     Image(String),
     Describe(String),
+    Url(Link),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -34,6 +35,7 @@ pub enum Expect {
     StdErr(Terminal),
     Image(String),
     Describe(String),
+    Url(Link),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

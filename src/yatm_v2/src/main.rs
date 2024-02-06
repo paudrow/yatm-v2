@@ -15,7 +15,17 @@ fn main() {
             name: "requirement".to_string(),
             description: "description".to_string(),
             labels: Some(vec!["req-label".to_string()]),
-            links: None,
+            // links: None,
+            links: Some(vec![
+                common::types::Link {
+                    name: "link".to_string(),
+                    url: "www.url.com".to_string(),
+                },
+                common::types::Link {
+                    name: "link2".to_string(),
+                    url: "www.url2.com".to_string(),
+                },
+            ]),
             steps: vec![
                 common::types::Step {
                     action: vec![
@@ -25,6 +35,10 @@ fn main() {
                         }),
                         common::types::Action::Image("image".to_string()),
                         common::types::Action::Describe("describe".to_string()),
+                        common::types::Action::Url(common::types::Link {
+                            name: "link".to_string(),
+                            url: "www.url.com".to_string(),
+                        }),
                     ],
                     expect: vec![common::types::Expect::StdOut(common::types::Terminal {
                         number: 1,
@@ -36,10 +50,22 @@ fn main() {
                         number: 1,
                         text: "text 2".to_string(),
                     })],
-                    expect: vec![common::types::Expect::StdOut(common::types::Terminal {
-                        number: 1,
-                        text: "text 2".to_string(),
-                    })],
+                    expect: vec![
+                        common::types::Expect::StdOut(common::types::Terminal {
+                            number: 1,
+                            text: "text 2".to_string(),
+                        }),
+                        common::types::Expect::StdErr(common::types::Terminal {
+                            number: 1,
+                            text: "text 3".to_string(),
+                        }),
+                        common::types::Expect::Image("image".to_string()),
+                        common::types::Expect::Describe("describe".to_string()),
+                        common::types::Expect::Url(common::types::Link {
+                            name: "link".to_string(),
+                            url: "www.url.com".to_string(),
+                        }),
+                    ],
                 },
             ],
         },

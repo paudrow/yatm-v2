@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use askama::Template;
-use common::types::{Action, Expect, Step, TestCase};
+use common::types::{Action, Expect, Link, Step, TestCase};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -9,6 +9,7 @@ use std::collections::HashMap;
 struct GithubIssueTemplate {
     description: String,
     steps: Vec<Step>,
+    links: Vec<Link>,
     selected_permutation: HashMap<String, String>,
 }
 
@@ -25,6 +26,7 @@ pub fn get_github_issue_content(test_case: TestCase) -> Result<GithubIssueConten
     let template = GithubIssueTemplate {
         description: test_case.requirement.description,
         steps: test_case.requirement.steps,
+        links: test_case.requirement.links.unwrap_or_default(),
         selected_permutation: test_case.selected_permutation,
     };
     let text_body = template.render().context("Failed to render the template")?;
