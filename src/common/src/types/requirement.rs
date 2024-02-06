@@ -4,8 +4,15 @@ use serde::{Deserialize, Serialize};
 pub struct Requirement {
     pub name: String,
     pub description: String,
-    pub labels: Vec<String>,
     pub steps: Vec<Step>,
+    pub labels: Option<Vec<String>>,
+    pub links: Option<Vec<Link>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Link {
+    pub name: String,
+    pub url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

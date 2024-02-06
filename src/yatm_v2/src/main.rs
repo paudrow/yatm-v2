@@ -1,23 +1,21 @@
-use askama::Template;
-use common::types::{Step, TestCase, Action, Expect};
+mod utils;
+
+use crate::utils::template::get_github_issue_content;
+
+use common::types::{Action, Expect, Step, TestCase};
 use std::collections::HashMap;
 
-#[derive(Template, Clone)]
-#[template(path = "github_issue.md")]
-struct GithubIssueTemplate {
-    name: String,
-    description: String,
-    labels: Vec<String>,
-    steps: Vec<Step>,
-    selected_permutation: HashMap<String, String>,
-}
-
 fn main() {
+    let mut selected_permutation: HashMap<String, String> = HashMap::new();
+    selected_permutation.insert("key".to_string(), "value".to_string());
+    selected_permutation.insert("key2".to_string(), "value2".to_string());
+
     let test_case = TestCase {
         requirement: common::types::Requirement {
             name: "requirement".to_string(),
             description: "description".to_string(),
-            labels: vec!["label".to_string()],
+            labels: Some(vec!["req-label".to_string()]),
+            links: None,
             steps: vec![
                 common::types::Step {
                     action: vec![
@@ -48,27 +46,18 @@ fn main() {
         builder_used: common::types::TestCasesBuilder {
             name: "builder".to_string(),
             description: "description".to_string(),
-            labels: vec!["label".to_string()],
+            labels: Some(vec!["builder-label".to_string()]),
             set: vec![common::types::SetSteps::Include(common::types::Filter {
                 all_labels: Some(vec!["label".to_string()]),
                 any_names: Some(vec!["name".to_string()]),
                 negate: false,
             })],
             permutations: std::collections::HashMap::new(),
+            version: 1,
         },
-        selected_permutation: std::collections::HashMap::new(),
+        // selected_permutation: std::collections::HashMap::new(),
+        selected_permutation,
     };
-    // combine the labels from the requirement and the builder
-    let mut labels = test_case.builder_used.labels.clone();
-    labels.extend(test_case.requirement.labels.clone());
 
-
-    let template = GithubIssueTemplate {
-        name: test_case.requirement.name,
-        description: test_case.requirement.description,
-        labels,
-        steps: test_case.requirement.steps,
-        selected_permutation: test_case.selected_permutation,
-    };
-    println!("{}", template.render().unwrap());
+    println!("{:?}", get_github_issue_content(test_case).unwrap().labels);
 }

@@ -5,9 +5,10 @@ use std::collections::HashMap;
 pub struct TestCasesBuilder {
     pub name: String,
     pub description: String,
-    pub labels: Vec<String>,
     pub set: Vec<SetSteps>,
+    pub labels: Option<Vec<String>>,
     pub permutations: HashMap<String, Vec<String>>,
+    pub version: u8,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

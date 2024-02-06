@@ -78,7 +78,7 @@ pub fn cli() {
     match cli.command {
         Commands::Init { path } => {
             println!("Creating a new project at {:?}", path);
-        },
+        }
         Commands::Requirements { subcommand } => match subcommand {
             RequirementsSubcommands::Validate(options) => {
                 println!("Running Subcommand1 with option: {}", options.option);

@@ -1,3 +1,3 @@
-mod make_test_cases;
-mod cli;
-mod template;
+pub mod cli;
+pub mod make_test_cases;
+pub mod template;

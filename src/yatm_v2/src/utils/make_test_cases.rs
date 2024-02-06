@@ -1,19 +1,21 @@
 use std::collections::HashMap;
 
-use common::types::{TestCase, TestCasesBuilder, Requirement, Filter, SetSteps};
+use common::types::{Filter, Requirement, SetSteps, TestCase, TestCasesBuilder};
 use itertools::Itertools;
 
-pub fn make_test_cases(test_cases_builder: &TestCasesBuilder, requirements: &Vec<Requirement>) -> Vec<TestCase> {
+/// Returns a vector of test cases based on the test case builder and requirements
+pub fn make_test_cases(
+    test_cases_builder: &TestCasesBuilder,
+    requirements: &Vec<Requirement>,
+) -> Vec<TestCase> {
     let permutations = get_cartesian_product(test_cases_builder.permutations.clone());
     let requirements = get_selected_requirements(requirements, test_cases_builder);
     permutations
         .into_iter()
-        .map(|permutation| {
-            TestCase {
-                requirement: requirements[0].clone(),
-                builder_used: test_cases_builder.clone(),
-                selected_permutation: permutation,
-            }
+        .map(|permutation| TestCase {
+            requirement: requirements[0].clone(),
+            builder_used: test_cases_builder.clone(),
+            selected_permutation: permutation,
         })
         .collect()
 }
@@ -21,7 +23,7 @@ pub fn make_test_cases(test_cases_builder: &TestCasesBuilder, requirements: &Vec
 #[cfg(test)]
 mod test_make_test_cases {
     use super::make_test_cases;
-    use common::types::{Filter, Requirement, SetSteps, TestCasesBuilder, TestCase};
+    use common::types::{Filter, Requirement, SetSteps, TestCase, TestCasesBuilder};
 
     fn is_match_test_cases(actual: &Vec<TestCase>, expected: &Vec<TestCase>) -> bool {
         if actual.len() != expected.len() {
@@ -47,20 +49,22 @@ mod test_make_test_cases {
             Requirement {
                 name: "name1".to_string(),
                 description: "description".to_string(),
-                labels: vec!["label1".to_string()],
+                labels: Some(vec!["label1".to_string()]),
+                links: None,
                 steps: vec![],
             },
             Requirement {
                 name: "name2".to_string(),
                 description: "description".to_string(),
-                labels: vec!["label2".to_string()],
+                labels: Some(vec!["label2".to_string()]),
+                links: None,
                 steps: vec![],
             },
         ];
         let test_cases_builder = TestCasesBuilder {
             name: "Test test case".to_string(),
             description: "My description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string()],
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             set: vec![
                 SetSteps::Include(Filter {
                     all_labels: None,
@@ -85,6 +89,7 @@ mod test_make_test_cases {
                 );
                 m
             },
+            version: 1,
         };
         let result = make_test_cases(&test_cases_builder, &requirements);
         let expected = vec![
@@ -138,28 +143,29 @@ mod test_make_test_cases {
             Requirement {
                 name: "name1".to_string(),
                 description: "description".to_string(),
-                labels: vec!["label1".to_string()],
+                labels: Some(vec!["label1".to_string()]),
+                links: None,
                 steps: vec![],
             },
             Requirement {
                 name: "name2".to_string(),
                 description: "description".to_string(),
-                labels: vec!["label2".to_string()],
+                labels: Some(vec!["label2".to_string()]),
+                links: None,
                 steps: vec![],
             },
         ];
         let test_cases_builder = TestCasesBuilder {
             name: "Test test case".to_string(),
             description: "My description".to_string(),
-            labels: vec!["label3".to_string()],
-            set: vec![
-                SetSteps::Include(Filter {
-                    all_labels: Some(vec!["label-none".to_string()]),
-                    any_names: None,
-                    negate: false,
-                }),
-            ],
+            labels: Some(vec!["label3".to_string()]),
+            set: vec![SetSteps::Include(Filter {
+                all_labels: Some(vec!["label-none".to_string()]),
+                any_names: None,
+                negate: false,
+            })],
             permutations: Default::default(),
+            version: 1,
         };
         let result = make_test_cases(&test_cases_builder, &requirements);
         let expected: Vec<TestCase> = vec![];
@@ -203,13 +209,10 @@ mod test_get_cartesian_product {
 
     #[test]
     fn test_get_cartesian_product() {
-        let data: HashMap<&str, Vec<&str>> = [
-            ("a", vec!["1", "2"]),
-            ("b", vec!["3", "4"]),
-        ]
-        .iter()
-        .cloned()
-        .collect();
+        let data: HashMap<&str, Vec<&str>> = [("a", vec!["1", "2"]), ("b", vec!["3", "4"])]
+            .iter()
+            .cloned()
+            .collect();
 
         let result = get_cartesian_product(data);
 
@@ -251,7 +254,11 @@ mod test_get_cartesian_product {
     }
 }
 
-fn get_selected_requirements(requirements: &Vec<Requirement>, test_cases_builder: &TestCasesBuilder) -> Vec<Requirement> {
+/// Returns the requirements that match the filters
+fn get_selected_requirements(
+    requirements: &Vec<Requirement>,
+    test_cases_builder: &TestCasesBuilder,
+) -> Vec<Requirement> {
     let mut selected_requirements: Vec<Requirement> = vec![];
     for set in test_cases_builder.set.iter() {
         match set {
@@ -296,26 +303,29 @@ mod test_get_selected_requirements {
             Requirement {
                 name: "name1".to_string(),
                 description: "description".to_string(),
-                labels: vec!["label1".to_string()],
+                labels: Some(vec!["label1".to_string()]),
+                links: None,
                 steps: vec![],
             },
             Requirement {
                 name: "name2".to_string(),
                 description: "description".to_string(),
-                labels: vec!["label2".to_string()],
+                labels: Some(vec!["label2".to_string()]),
+                links: None,
                 steps: vec![],
             },
         ];
         let test_cases_builder = TestCasesBuilder {
             name: "Test test case".to_string(),
             description: "My description".to_string(),
-            labels: vec!["label3".to_string()],
+            labels: Some(vec!["label3".to_string()]),
             set: vec![SetSteps::Include(Filter {
                 all_labels: Some(vec!["label-none".to_string()]),
                 any_names: None,
                 negate: false,
             })],
             permutations: Default::default(),
+            version: 1,
         };
         let result = get_selected_requirements(&requirements, &test_cases_builder);
         let expected: Vec<Requirement> = vec![];
@@ -328,26 +338,29 @@ mod test_get_selected_requirements {
             Requirement {
                 name: "name1".to_string(),
                 description: "description".to_string(),
-                labels: vec!["label1".to_string()],
+                labels: Some(vec!["label1".to_string()]),
+                links: None,
                 steps: vec![],
             },
             Requirement {
                 name: "name2".to_string(),
                 description: "description".to_string(),
-                labels: vec!["label2".to_string()],
+                labels: Some(vec!["label2".to_string()]),
+                links: None,
                 steps: vec![],
             },
         ];
         let test_cases_builder = TestCasesBuilder {
             name: "Test test case".to_string(),
             description: "My description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string()],
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             set: vec![SetSteps::Include(Filter {
                 all_labels: Some(vec!["label1".to_string()]),
                 any_names: None,
                 negate: false,
             })],
             permutations: Default::default(),
+            version: 1,
         };
         let result = get_selected_requirements(&requirements, &test_cases_builder);
         let expected = vec![requirements[0].clone()];
@@ -360,20 +373,22 @@ mod test_get_selected_requirements {
             Requirement {
                 name: "name1".to_string(),
                 description: "description".to_string(),
-                labels: vec!["label1".to_string()],
+                labels: Some(vec!["label1".to_string()]),
+                links: None,
                 steps: vec![],
             },
             Requirement {
                 name: "name2".to_string(),
                 description: "description".to_string(),
-                labels: vec!["label2".to_string()],
+                labels: Some(vec!["label2".to_string()]),
+                links: None,
                 steps: vec![],
             },
         ];
         let test_cases_builder = TestCasesBuilder {
             name: "Test test case".to_string(),
             description: "My description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string()],
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             set: vec![
                 SetSteps::Include(Filter {
                     all_labels: Some(vec!["label1".to_string()]),
@@ -386,6 +401,7 @@ mod test_get_selected_requirements {
                     negate: false,
                 }),
             ],
+            version: 1,
             permutations: Default::default(),
         };
         let result = get_selected_requirements(&requirements, &test_cases_builder);
@@ -399,20 +415,22 @@ mod test_get_selected_requirements {
             Requirement {
                 name: "name1".to_string(),
                 description: "description".to_string(),
-                labels: vec!["label1".to_string()],
+                labels: Some(vec!["label1".to_string()]),
+                links: None,
                 steps: vec![],
             },
             Requirement {
                 name: "name2".to_string(),
                 description: "description".to_string(),
-                labels: vec!["label2".to_string()],
+                labels: Some(vec!["label2".to_string()]),
+                links: None,
                 steps: vec![],
             },
         ];
         let test_cases_builder = TestCasesBuilder {
             name: "Test test case".to_string(),
             description: "My description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string()],
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             set: vec![
                 SetSteps::Include(Filter {
                     all_labels: None,
@@ -426,6 +444,7 @@ mod test_get_selected_requirements {
                 }),
             ],
             permutations: Default::default(),
+            version: 1,
         };
         let result = get_selected_requirements(&requirements, &test_cases_builder);
         let expected = vec![requirements[0].clone()];
@@ -438,20 +457,22 @@ mod test_get_selected_requirements {
             Requirement {
                 name: "name1".to_string(),
                 description: "description".to_string(),
-                labels: vec!["label1".to_string()],
+                labels: Some(vec!["label1".to_string()]),
+                links: None,
                 steps: vec![],
             },
             Requirement {
                 name: "name2".to_string(),
                 description: "description".to_string(),
-                labels: vec!["label2".to_string()],
+                labels: Some(vec!["label2".to_string()]),
+                links: None,
                 steps: vec![],
             },
         ];
         let test_cases_builder = TestCasesBuilder {
             name: "Test test case".to_string(),
             description: "My description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string()],
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             set: vec![
                 SetSteps::Include(Filter {
                     all_labels: None,
@@ -470,22 +491,25 @@ mod test_get_selected_requirements {
                 }),
             ],
             permutations: Default::default(),
+            version: 1,
         };
         let result = get_selected_requirements(&requirements, &test_cases_builder);
         let expected = vec![];
         assert!(is_match_requirements(&result, &expected));
-
     }
 }
 
+/// Returns true if the requirement matches the filter
 fn filter_matches_requirement(filter: &Filter, requirement: &Requirement) -> bool {
     let label_matches = match &filter.all_labels {
         Some(labels) => {
             let mut all_labels_match = true;
             for label in labels.iter() {
-                if !requirement.labels.contains(label) {
-                    all_labels_match = false;
-                    break;
+                if let Some(requirement_labels) = &requirement.labels {
+                    if !requirement_labels.contains(label) {
+                        all_labels_match = false;
+                        break;
+                    }
                 }
             }
             all_labels_match
@@ -524,7 +548,8 @@ mod test_filter_matches_requirements {
         let requirement = Requirement {
             name: "name1".to_string(),
             description: "description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string()],
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            links: None,
             steps: vec![],
         };
         assert_eq!(filter_matches_requirement(&filter, &requirement), true);
@@ -540,7 +565,8 @@ mod test_filter_matches_requirements {
         let requirement = Requirement {
             name: "name1".to_string(),
             description: "description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string()],
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            links: None,
             steps: vec![],
         };
         assert_eq!(filter_matches_requirement(&filter, &requirement), false);
@@ -556,7 +582,8 @@ mod test_filter_matches_requirements {
         let requirement = Requirement {
             name: "name1".to_string(),
             description: "description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string()],
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            links: None,
             steps: vec![],
         };
         assert_eq!(filter_matches_requirement(&filter, &requirement), true);
@@ -572,7 +599,8 @@ mod test_filter_matches_requirements {
         let requirement = Requirement {
             name: "name1".to_string(),
             description: "description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string()],
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            links: None,
             steps: vec![],
         };
         assert_eq!(filter_matches_requirement(&filter, &requirement), false);
@@ -588,7 +616,8 @@ mod test_filter_matches_requirements {
         let requirement = Requirement {
             name: "name1".to_string(),
             description: "description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string()],
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            links: None,
             steps: vec![],
         };
         assert_eq!(filter_matches_requirement(&filter, &requirement), true);
@@ -604,7 +633,8 @@ mod test_filter_matches_requirements {
         let requirement = Requirement {
             name: "name1".to_string(),
             description: "description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string()],
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            links: None,
             steps: vec![],
         };
         assert_eq!(filter_matches_requirement(&filter, &requirement), false);
@@ -620,7 +650,12 @@ mod test_filter_matches_requirements {
         let requirement = Requirement {
             name: "name1".to_string(),
             description: "description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string(), "label3".to_string()],
+            labels: Some(vec![
+                "label1".to_string(),
+                "label2".to_string(),
+                "label3".to_string(),
+            ]),
+            links: None,
             steps: vec![],
         };
         assert_eq!(filter_matches_requirement(&filter, &requirement), true);
@@ -636,7 +671,12 @@ mod test_filter_matches_requirements {
         let requirement = Requirement {
             name: "name1".to_string(),
             description: "description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string(), "label3".to_string()],
+            labels: Some(vec![
+                "label1".to_string(),
+                "label2".to_string(),
+                "label3".to_string(),
+            ]),
+            links: None,
             steps: vec![],
         };
         assert_eq!(filter_matches_requirement(&filter, &requirement), false);
@@ -652,7 +692,8 @@ mod test_filter_matches_requirements {
         let requirement = Requirement {
             name: "name1".to_string(),
             description: "description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string()],
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            links: None,
             steps: vec![],
         };
         assert_eq!(filter_matches_requirement(&filter, &requirement), false);
@@ -668,7 +709,8 @@ mod test_filter_matches_requirements {
         let requirement = Requirement {
             name: "name1".to_string(),
             description: "description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string()],
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            links: None,
             steps: vec![],
         };
         assert_eq!(filter_matches_requirement(&filter, &requirement), true);
@@ -684,7 +726,8 @@ mod test_filter_matches_requirements {
         let requirement = Requirement {
             name: "name3".to_string(),
             description: "description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string()],
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            links: None,
             steps: vec![],
         };
         assert_eq!(filter_matches_requirement(&filter, &requirement), true);
@@ -700,7 +743,8 @@ mod test_filter_matches_requirements {
         let requirement = Requirement {
             name: "name3".to_string(),
             description: "description".to_string(),
-            labels: vec!["label1".to_string(), "label2".to_string()],
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            links: None,
             steps: vec![],
         };
         assert_eq!(filter_matches_requirement(&filter, &requirement), false);
