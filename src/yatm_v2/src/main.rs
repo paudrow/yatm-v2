@@ -1,11 +1,17 @@
 mod utils;
+use anyhow::{Context, Ok, Result};
 
+use crate::utils::github::Github;
 use crate::utils::template::get_github_issue_content;
 
-use common::types::{Action, Expect, Step, TestCase};
+use chrono;
+use common::types::TestCase;
+use dotenv::dotenv;
+use octocrab::Octocrab;
 use std::collections::HashMap;
+use tokio;
 
-fn main() {
+fn demo_template() {
     let mut selected_permutation: HashMap<String, String> = HashMap::new();
     selected_permutation.insert("key".to_string(), "value".to_string());
     selected_permutation.insert("key2".to_string(), "value2".to_string());
@@ -89,4 +95,32 @@ fn main() {
     println!("{}", result.title);
     println!("{}", result.text_body);
     println!("{:?}", result.labels);
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let gh = Github::new("paudrow".to_string(), "test-yatm-v2".to_string())?;
+
+    let issue_title = format!(
+        "My issue {}",
+        chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+    );
+    gh.create_issue(
+        issue_title,
+        "My issue body".to_string(),
+        vec![String::from("label")],
+    )
+    .await?;
+    // gh.close_all_issues().await?;
+
+    let issues = gh.get_issues().await?;
+    for issue in issues {
+        println!(
+            "{}, {}",
+            issue.title,
+            issue.body.unwrap_or("No body".into())
+        );
+    }
+
+    Ok(())
 }
