@@ -14,13 +14,13 @@ struct GithubIssueTemplate {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct GithubIssueContent {
+pub struct LocalIssue {
     pub labels: Vec<String>,
     pub title: String,
     pub text_body: String,
 }
 
-pub fn get_github_issue_content(test_case: TestCase) -> Result<GithubIssueContent> {
+pub fn get_github_issue_content(test_case: TestCase) -> Result<LocalIssue> {
     let labels = get_labels(&test_case);
 
     let template = GithubIssueTemplate {
@@ -31,7 +31,7 @@ pub fn get_github_issue_content(test_case: TestCase) -> Result<GithubIssueConten
     };
     let text_body = template.render().context("Failed to render the template")?;
 
-    Ok(GithubIssueContent {
+    Ok(LocalIssue {
         labels,
         title: test_case.requirement.name,
         text_body,

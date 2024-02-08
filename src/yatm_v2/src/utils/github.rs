@@ -1,6 +1,11 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
+use async_recursion::async_recursion;
 use dotenv::dotenv;
+use octocrab::models::issues::Issue;
+use octocrab::models::IssueState;
+use octocrab::params::State;
 use octocrab::Octocrab;
+use tokio::time::{sleep, Duration};
 
 pub struct Github {
     octocrab: Octocrab,
@@ -60,54 +65,92 @@ impl Github {
         Ok(())
     }
 
-    pub async fn get_issues(&self) -> Result<octocrab::Page<octocrab::models::issues::Issue>> {
-        let issues = self
-            .octocrab
-            .issues(&self.owner, &self.repo)
-            .list()
-            .state(octocrab::params::State::Open)
-            .send()
-            .await
-            .context("Failed to list issues")?;
+    pub async fn get_issues(&self, state: Option<State>) -> Result<Vec<Issue>> {
+        let mut page: u32 = 1;
+        let mut issues: Vec<Issue> = Vec::new();
+        loop {
+            let page_issues = self.get_issues_helper(page, state).await?;
+            if page_issues.is_empty() {
+                break;
+            }
+            issues.extend(page_issues);
+            page += 1;
+        }
         Ok(issues)
     }
 
+    async fn get_issues_helper(&self, page: u32, state: Option<State>) -> Result<Vec<Issue>> {
+        let page = self
+            .octocrab
+            .issues(&self.owner, &self.repo)
+            .list()
+            .per_page(100)
+            .state(state.unwrap_or(State::Open))
+            .page(page)
+            .send()
+            .await
+            .context("Failed to list issues")?;
+        Ok(page.items)
+    }
+
+    #[async_recursion]
     pub async fn create_issue(
         &self,
         title: String,
         body: String,
         labels: Vec<String>,
     ) -> Result<()> {
-        self.octocrab
+        let result = self
+            .octocrab
             .issues(&self.owner, &self.repo)
             .create(&title)
             .body(&body)
-            .labels(labels)
+            .labels(labels.clone())
             .send()
-            .await
-            .context(format!("Failed to create issue: {}", &title))?;
-        Ok(())
+            .await;
+
+        if result.is_ok() {
+            return Ok(());
+        }
+
+        let error = result.unwrap_err();
+        if let octocrab::Error::GitHub { source, .. } = &error {
+            if source
+                .message
+                .contains("You have exceeded a secondary rate limit")
+            {
+                println!("Secondary rate limit exceeded, waiting 60 seconds and retrying");
+                sleep(Duration::from_secs(60)).await;
+                // Retry the request by calling the function recursively.
+                return self.create_issue(title, body, labels).await;
+            }
+        }
+        Err(anyhow!(error))
     }
 
     pub async fn close_all_issues(&self) -> Result<()> {
         let issues = self
-            .octocrab
-            .issues(&self.owner, &self.repo)
-            .list()
-            .state(octocrab::params::State::Open)
-            .send()
+            .get_issues(Some(State::Open))
             .await
-            .context("Failed to list issues")?;
+            .context("Failed to get issues")?;
 
         for issue in issues {
-            self.octocrab
-                .issues(&self.owner, &self.repo)
-                .update(issue.number)
-                .state(octocrab::models::IssueState::Closed)
-                .send()
-                .await
-                .context(format!("Failed to delete issue: {}", issue.number))?;
+            self.close_issue(issue).await?;
         }
+        Ok(())
+    }
+
+    pub async fn close_issue(&self, issue: Issue) -> Result<()> {
+        self.octocrab
+            .issues(&self.owner, &self.repo)
+            .update(issue.number)
+            .state(IssueState::Closed)
+            .send()
+            .await
+            .context(format!(
+                "Failed to delete issue: #{} {}",
+                issue.number, issue.title
+            ))?;
         Ok(())
     }
 }

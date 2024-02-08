@@ -101,26 +101,29 @@ fn demo_template() {
 async fn main() -> Result<()> {
     let gh = Github::new("paudrow".to_string(), "test-yatm-v2".to_string())?;
 
-    let issue_title = format!(
-        "My issue {}",
-        chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
-    );
-    gh.create_issue(
-        issue_title,
-        "My issue body".to_string(),
-        vec![String::from("label")],
-    )
-    .await?;
-    // gh.close_all_issues().await?;
-
-    let issues = gh.get_issues().await?;
-    for issue in issues {
-        println!(
-            "{}, {}",
-            issue.title,
-            issue.body.unwrap_or("No body".into())
+    for _ in 0..300 {
+        let issue_title = format!(
+            "My issue {}",
+            chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
         );
+        gh.create_issue(
+            issue_title.clone(),
+            "My issue body".to_string(),
+            vec![String::from("label")],
+        )
+        .await?;
     }
+
+    // let issues = gh.get_issues().await?;
+    // for issue in &issues {
+    //     println!(
+    //         "{}, {}",
+    //         issue.title,
+    //         issue.body.clone().unwrap_or("No body".into())
+    //     );
+    // }
+    // println!("Total issues: {}", &issues.len());
+    // gh.close_all_issues().await?;
 
     Ok(())
 }

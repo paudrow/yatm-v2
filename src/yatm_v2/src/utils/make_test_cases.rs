@@ -10,14 +10,20 @@ pub fn make_test_cases(
 ) -> Vec<TestCase> {
     let permutations = get_cartesian_product(test_cases_builder.permutations.clone());
     let requirements = get_selected_requirements(requirements, test_cases_builder);
-    permutations
-        .into_iter()
-        .map(|permutation| TestCase {
-            requirement: requirements[0].clone(),
-            builder_used: test_cases_builder.clone(),
-            selected_permutation: permutation,
-        })
-        .collect()
+
+    let mut test_cases = Vec::new();
+
+    for requirement in requirements.iter() {
+        for permutation in &permutations {
+            test_cases.push(TestCase {
+                requirement: requirement.clone(),
+                builder_used: test_cases_builder.clone(),
+                selected_permutation: permutation.clone(),
+            });
+        }
+    }
+
+    test_cases
 }
 
 #[cfg(test)]
@@ -44,7 +50,86 @@ mod test_make_test_cases {
     }
 
     #[test]
-    fn test_make_test_cases() {
+    fn make_test_cases_two_matches() {
+        let requirements = vec![
+            Requirement {
+                name: "name1".to_string(),
+                description: "description".to_string(),
+                labels: Some(vec!["label1".to_string()]),
+                links: None,
+                steps: vec![],
+            },
+            Requirement {
+                name: "name2".to_string(),
+                description: "description".to_string(),
+                labels: Some(vec!["label2".to_string()]),
+                links: None,
+                steps: vec![],
+            },
+        ];
+        let test_cases_builder = TestCasesBuilder {
+            name: "Test test case".to_string(),
+            description: "My description".to_string(),
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            set: vec![SetSteps::Include(Filter {
+                all_labels: None,
+                any_names: Some(vec!["name1".to_string(), "name2".to_string()]),
+                negate: false,
+            })],
+            permutations: {
+                let mut m = std::collections::HashMap::new();
+                m.insert(
+                    "key1".to_string(),
+                    vec!["value1".to_string(), "value2".to_string()],
+                );
+                m
+            },
+            version: 1,
+        };
+        let result = make_test_cases(&test_cases_builder, &requirements);
+        let expected = vec![
+            TestCase {
+                requirement: requirements[0].clone(),
+                builder_used: test_cases_builder.clone(),
+                selected_permutation: {
+                    let mut m = std::collections::HashMap::new();
+                    m.insert("key1".to_string(), "value1".to_string());
+                    m
+                },
+            },
+            TestCase {
+                requirement: requirements[0].clone(),
+                builder_used: test_cases_builder.clone(),
+                selected_permutation: {
+                    let mut m = std::collections::HashMap::new();
+                    m.insert("key1".to_string(), "value2".to_string());
+                    m
+                },
+            },
+            TestCase {
+                requirement: requirements[1].clone(),
+                builder_used: test_cases_builder.clone(),
+                selected_permutation: {
+                    let mut m = std::collections::HashMap::new();
+                    m.insert("key1".to_string(), "value1".to_string());
+                    m
+                },
+            },
+            TestCase {
+                requirement: requirements[1].clone(),
+                builder_used: test_cases_builder.clone(),
+                selected_permutation: {
+                    let mut m = std::collections::HashMap::new();
+                    m.insert("key1".to_string(), "value2".to_string());
+                    m
+                },
+            },
+        ];
+        assert!(is_match_test_cases(&result, &expected));
+    }
+
+    #[test]
+    fn test_make_test_cases_one_match() {
         let requirements = vec![
             Requirement {
                 name: "name1".to_string(),
