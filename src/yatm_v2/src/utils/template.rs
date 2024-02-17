@@ -1,3 +1,4 @@
+use crate::utils::local_issue::LocalIssue;
 use anyhow::{Context, Result};
 use askama::Template;
 use common::types::{Action, Expect, Link, Step, TestCase};
@@ -11,13 +12,6 @@ struct GithubIssueTemplate {
     steps: Vec<Step>,
     links: Vec<Link>,
     selected_permutation: HashMap<String, String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct LocalIssue {
-    pub labels: Vec<String>,
-    pub title: String,
-    pub text_body: String,
 }
 
 pub fn get_github_issue_content(test_case: TestCase) -> Result<LocalIssue> {

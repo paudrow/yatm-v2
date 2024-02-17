@@ -1,7 +1,10 @@
 mod utils;
 use anyhow::{Context, Ok, Result};
+use utils::local_issue;
 
 use crate::utils::github::Github;
+use crate::utils::github_utils::get_local_issues_without_matches;
+use crate::utils::local_issue::LocalIssue;
 use crate::utils::template::get_github_issue_content;
 
 use chrono;
@@ -101,28 +104,46 @@ fn demo_template() {
 async fn main() -> Result<()> {
     let gh = Github::new("paudrow".to_string(), "test-yatm-v2".to_string())?;
 
-    for _ in 0..300 {
-        let issue_title = format!(
-            "My issue {}",
-            chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
-        );
+    // for _ in 0..300 {
+    //     let issue_title = format!(
+    //         "My issue {}",
+    //         chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+    //     );
+    //     gh.create_issue(
+    //         issue_title.clone(),
+    //         "My issue body".to_string(),
+    //         vec![String::from("label")],
+    //     )
+    //     .await?;
+    // }
+    let local_issues = vec![
+        LocalIssue {
+            labels: vec!["label".to_string()],
+            title: "My issue 2021-08-25 14:00:00".to_string(),
+            text_body: "My issue body".to_string(),
+        },
+        LocalIssue {
+            labels: vec!["label".to_string()],
+            title: "My issue 2021-08-25 14:00:01".to_string(),
+            text_body: "My issue body".to_string(),
+        },
+    ];
+    let github_issues = gh.get_issues(Some(octocrab::params::State::Open)).await?;
+    let local_issues = get_local_issues_without_matches(local_issues, &github_issues);
+
+    println!("{:#?}", local_issues);
+    if local_issues.is_empty() {
+        println!("No local issues to create");
+    } else {
         gh.create_issue(
-            issue_title.clone(),
-            "My issue body".to_string(),
-            vec![String::from("label")],
+            local_issues[0].title.clone(),
+            local_issues[0].text_body.clone(),
+            local_issues[0].labels.clone(),
         )
         .await?;
     }
 
-    // let issues = gh.get_issues().await?;
-    // for issue in &issues {
-    //     println!(
-    //         "{}, {}",
-    //         issue.title,
-    //         issue.body.clone().unwrap_or("No body".into())
-    //     );
-    // }
-    // println!("Total issues: {}", &issues.len());
+    println!("Total issues: {}", &github_issues.len());
     // gh.close_all_issues().await?;
 
     Ok(())

@@ -1,15 +1,16 @@
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-
-use crate::utils::template::LocalIssue;
+use crate::utils::local_issue::LocalIssue;
 use octocrab::models::issues::Issue as GithubIssue;
-use url::Url;
 
 struct GithubIssueHelper {
     pub title: String,
     pub labels: Vec<String>,
 }
 
+/// Get local issues that do not have a match in the github issues
+///
+/// Note that github issues can have more labels than the local issues and
+/// still be considered a match. This is to allow for additional tags to be added
+/// to the github issues, such as help wanted, bug, etc.
 pub fn get_local_issues_without_matches(
     local_issues: Vec<LocalIssue>,
     github_issues: &Vec<GithubIssue>,
@@ -33,16 +34,12 @@ fn get_local_issues_without_matches_helper(
     local_issues: Vec<LocalIssue>,
     github_issues: &Vec<GithubIssueHelper>,
 ) -> Vec<LocalIssue> {
-    let github_issue_hashes: Vec<_> = github_issues
-        .iter()
-        .map(|issue| get_issue_hash(issue.title.clone(), issue.labels.clone()))
-        .collect();
     local_issues
         .iter()
         .filter(|local_issue| {
-            let local_labels = local_issue.labels.clone();
-            let local_hash = get_issue_hash(local_issue.title.clone(), local_labels);
-            !github_issue_hashes.contains(&local_hash)
+            !github_issues.iter().any(|github_issue| {
+                is_local_issue_match_github_issue_helper(local_issue, github_issue)
+            })
         })
         .cloned()
         .collect()
@@ -51,7 +48,35 @@ fn get_local_issues_without_matches_helper(
 #[cfg(test)]
 mod test_get_local_issues_without_matches {
     use super::get_local_issues_without_matches_helper;
-    use crate::utils::{github_utils::GithubIssueHelper, template::LocalIssue};
+    use super::{GithubIssueHelper, LocalIssue};
+
+    #[test]
+    fn matches() {
+        let local_issues = vec![
+            LocalIssue {
+                labels: vec!["label1".to_string()],
+                title: "title".to_string(),
+                text_body: "text_body".to_string(),
+            },
+            LocalIssue {
+                labels: vec!["label2".to_string()],
+                title: "title2".to_string(),
+                text_body: "text_body2".to_string(),
+            },
+        ];
+        let github_issues: Vec<_> = vec![
+            GithubIssueHelper {
+                labels: vec!["label3".to_string()],
+                title: "title3".to_string(),
+            },
+            GithubIssueHelper {
+                labels: vec!["label4".to_string()],
+                title: "title4".to_string(),
+            },
+        ];
+        let result = get_local_issues_without_matches_helper(local_issues, &github_issues);
+        assert_eq!(result.len(), 2);
+    }
 
     #[test]
     fn no_matches() {
@@ -59,127 +84,200 @@ mod test_get_local_issues_without_matches {
             LocalIssue {
                 labels: vec!["label1".to_string()],
                 title: "title".to_string(),
-                text_body: "text".to_string(),
+                text_body: "text_body".to_string(),
             },
             LocalIssue {
                 labels: vec!["label2".to_string()],
                 title: "title2".to_string(),
-                text_body: "text2".to_string(),
+                text_body: "text_body2".to_string(),
             },
         ];
-        let github_issues = vec![GithubIssueHelper {
-            labels: vec![],
-            title: "title3".to_string(),
-        }];
+        let github_issues: Vec<_> = vec![
+            GithubIssueHelper {
+                labels: vec!["label1".to_string()],
+                title: "title".to_string(),
+            },
+            GithubIssueHelper {
+                labels: vec!["label2".to_string()],
+                title: "title2".to_string(),
+            },
+        ];
         let result = get_local_issues_without_matches_helper(local_issues, &github_issues);
-        assert_eq!(result.len(), 2, "All local issues should be returned");
+        assert_eq!(result.len(), 0);
     }
 
     #[test]
     fn one_match() {
         let local_issues = vec![
             LocalIssue {
-                labels: vec!["label1".to_string(), "label2".to_string()],
+                labels: vec!["label1".to_string()],
                 title: "title".to_string(),
-                text_body: "text".to_string(),
+                text_body: "text_body".to_string(),
             },
             LocalIssue {
                 labels: vec!["label2".to_string()],
                 title: "title2".to_string(),
-                text_body: "text2".to_string(),
+                text_body: "text_body2".to_string(),
             },
         ];
-        let github_issues = vec![GithubIssueHelper {
-            labels: vec!["label1".to_string(), "label2".to_string()],
-            title: "title".to_string(),
-        }];
-        let result = get_local_issues_without_matches_helper(local_issues, &github_issues);
-        assert_eq!(result.len(), 1, "One local issue should be returned");
-        assert_eq!(
-            result[0].title, "title2",
-            "The second local issue should be returned"
-        );
-    }
-
-    #[test]
-    fn all_matches() {
-        let local_issues = vec![
-            LocalIssue {
-                labels: vec!["label1".to_string(), "label2".to_string()],
-                title: "title".to_string(),
-                text_body: "text".to_string(),
-            },
-            LocalIssue {
-                labels: vec!["label2".to_string()],
-                title: "title2".to_string(),
-                text_body: "text2".to_string(),
-            },
-        ];
-        let github_issues = vec![
+        let github_issues: Vec<_> = vec![
             GithubIssueHelper {
-                labels: vec!["label1".to_string(), "label2".to_string()],
+                labels: vec!["label1".to_string()],
                 title: "title".to_string(),
             },
             GithubIssueHelper {
-                labels: vec!["label2".to_string()],
-                title: "title2".to_string(),
+                labels: vec!["label3".to_string()],
+                title: "title3".to_string(),
             },
         ];
         let result = get_local_issues_without_matches_helper(local_issues, &github_issues);
-        assert_eq!(result.len(), 0, "No local issues should be returned");
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].title, "title2");
     }
 }
 
-pub fn get_issue_hash(title: String, labels: Vec<String>) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    title.hash(&mut hasher);
+pub fn is_local_issue_match_github_issue(
+    local_issue: &LocalIssue,
+    github_issue: &GithubIssue,
+) -> bool {
+    let github_issue_helper = GithubIssueHelper {
+        title: github_issue.title.clone(),
+        labels: github_issue
+            .labels
+            .clone()
+            .iter()
+            .map(|label| label.name.clone())
+            .collect(),
+    };
+    is_local_issue_match_github_issue_helper(local_issue, &github_issue_helper)
+}
 
-    let mut labels = labels.clone();
-    labels.sort();
-    for label in labels {
-        label.hash(&mut hasher);
+fn is_local_issue_match_github_issue_helper(
+    local_issue: &LocalIssue,
+    github_issue: &GithubIssueHelper,
+) -> bool {
+    if local_issue.title != github_issue.title {
+        return false;
     }
-    hasher.finish()
+    if local_issue.labels.len() > github_issue.labels.len() {
+        return false;
+    }
+    for label in local_issue.labels.iter() {
+        if !github_issue
+            .labels
+            .iter()
+            .any(|github_label| github_label == label)
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 #[cfg(test)]
-mod test_get_issue_hash {
-    use super::get_issue_hash;
+mod test_is_local_issue_match_github_issue {
+    use super::is_local_issue_match_github_issue_helper;
+    use super::{GithubIssueHelper, LocalIssue};
 
     #[test]
-    fn different_order_labels_should_still_match() {
-        let hash1 = get_issue_hash(
-            "title".to_string(),
-            vec!["label1".to_string(), "label2".to_string()],
-        );
-        let hash2 = get_issue_hash(
-            "title".to_string(),
-            vec!["label2".to_string(), "label1".to_string()],
-        );
-        assert_eq!(hash1, hash2, "Hashes should be equal");
+    fn is_match() {
+        let local_issue = LocalIssue {
+            labels: vec!["label1".to_string()],
+            title: "title".to_string(),
+            text_body: "text_body".to_string(),
+        };
+        let github_issue = GithubIssueHelper {
+            labels: vec!["label1".to_string()],
+            title: "title".to_string(),
+        };
+        assert!(is_local_issue_match_github_issue_helper(
+            &local_issue,
+            &github_issue
+        ));
     }
 
     #[test]
-    fn different_shouldnt_match() {
-        let hash1 = get_issue_hash(
-            "title".to_string(),
-            vec!["label1".to_string(), "label2".to_string()],
-        );
-        let hash2 = get_issue_hash(
-            "title".to_string(),
-            vec!["label2".to_string(), "label3".to_string()],
-        );
-        let hash3 = get_issue_hash(
-            "title - new".to_string(),
-            vec!["label1".to_string(), "label2".to_string()],
-        );
-        let hash4 = get_issue_hash(
-            "TITLE".to_string(),
-            vec!["label1".to_string(), "label2".to_string()],
-        );
+    fn is_match_with_github_issue_having_more_labels() {
+        let local_issue = LocalIssue {
+            labels: vec!["label1".to_string()],
+            title: "title".to_string(),
+            text_body: "text_body".to_string(),
+        };
+        let github_issue = GithubIssueHelper {
+            labels: vec!["label1".to_string(), "label2".to_string()],
+            title: "title".to_string(),
+        };
+        assert!(is_local_issue_match_github_issue_helper(
+            &local_issue,
+            &github_issue
+        ));
+    }
 
-        assert_ne!(hash1, hash2, "Labels don't match");
-        assert_ne!(hash1, hash3, "Title text doesn't match");
-        assert_ne!(hash1, hash4, "Title casing doesn't match");
+    #[test]
+    fn is_not_match_label() {
+        let local_issue = LocalIssue {
+            labels: vec!["label1".to_string()],
+            title: "title".to_string(),
+            text_body: "text_body".to_string(),
+        };
+        let github_issue = GithubIssueHelper {
+            labels: vec!["label2".to_string()],
+            title: "title".to_string(),
+        };
+        assert!(!is_local_issue_match_github_issue_helper(
+            &local_issue,
+            &github_issue
+        ));
+    }
+
+    #[test]
+    fn is_not_match_title() {
+        let local_issue = LocalIssue {
+            labels: vec!["label1".to_string()],
+            title: "title".to_string(),
+            text_body: "text_body".to_string(),
+        };
+        let github_issue = GithubIssueHelper {
+            labels: vec!["label1".to_string()],
+            title: "title2".to_string(),
+        };
+        assert!(!is_local_issue_match_github_issue_helper(
+            &local_issue,
+            &github_issue
+        ));
+    }
+
+    #[test]
+    fn is_not_match_label_and_title() {
+        let local_issue = LocalIssue {
+            labels: vec!["label1".to_string()],
+            title: "title".to_string(),
+            text_body: "text_body".to_string(),
+        };
+        let github_issue = GithubIssueHelper {
+            labels: vec!["label2".to_string()],
+            title: "title2".to_string(),
+        };
+        assert!(!is_local_issue_match_github_issue_helper(
+            &local_issue,
+            &github_issue
+        ));
+    }
+
+    #[test]
+    fn is_not_match_missing_label() {
+        let local_issue = LocalIssue {
+            labels: vec!["label1".to_string(), "label2".to_string()],
+            title: "title".to_string(),
+            text_body: "text_body".to_string(),
+        };
+        let github_issue = GithubIssueHelper {
+            labels: vec!["label2".to_string()],
+            title: "title".to_string(),
+        };
+        assert!(!is_local_issue_match_github_issue_helper(
+            &local_issue,
+            &github_issue
+        ));
     }
 }
