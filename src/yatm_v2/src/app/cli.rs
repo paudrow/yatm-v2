@@ -1,7 +1,10 @@
-use crate::app::init_config::init_config;
+use crate::app::load_config::load_config;
+use crate::app::requirements_validate::validate_requirements;
+use crate::app::{init_config::init_config, requirements_validate};
+
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use clap::{Parser, Subcommand};
 
 // Define the main application
@@ -42,7 +45,11 @@ enum Commands {
 #[derive(Subcommand)]
 enum RequirementsSubcommands {
     /// Check the requirements
-    Validate(Subcommand1Options),
+    Validate {
+        /// The path to the project
+        #[clap(short, long, default_value = ".")]
+        config_path: PathBuf,
+    },
     /// List the requirements
     List,
 }
@@ -82,8 +89,10 @@ pub fn cli() -> Result<()> {
             init_config(&path)?;
         }
         Commands::Requirements { subcommand } => match subcommand {
-            RequirementsSubcommands::Validate(options) => {
-                println!("Running Subcommand1 with option: {}", options.option);
+            RequirementsSubcommands::Validate { config_path } => {
+                let config = load_config(&config_path)?;
+                validate_requirements(&config.requirements_dirs)?;
+                println!("Looks good 👍");
             }
             RequirementsSubcommands::List => {
                 println!("Running list");

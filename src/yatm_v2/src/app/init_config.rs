@@ -1,7 +1,7 @@
 use crate::types::Config;
 use anyhow::{Context, Result};
 use serde_yaml;
-use std::{os, path::PathBuf};
+use std::path::PathBuf;
 
 pub fn init_config(dir: &PathBuf) -> Result<()> {
     make_sure_empty_dir_exists(dir)?;
