@@ -9,6 +9,50 @@ pub struct Requirement {
     pub links: Option<Vec<Link>>,
 }
 
+impl Requirement {
+    pub fn default() -> Self {
+        Requirement {
+            name: "name".to_string(),
+            description: "description".to_string(),
+            steps: vec![Step {
+                action: vec![
+                    Action::Describe("action".to_string()),
+                    Action::StdIn(Terminal {
+                        number: 1,
+                        text: "echo 'hi'".to_string(),
+                    }),
+                    Action::Url(Link {
+                        name: "Google".to_string(),
+                        url: "www.google.com".to_string(),
+                    }),
+                    Action::Image("http://placekitten.com/200/300".to_string()),
+                ],
+                expect: vec![
+                    Expect::Describe("expect".to_string()),
+                    Expect::StdOut(Terminal {
+                        number: 1,
+                        text: "hi".to_string(),
+                    }),
+                    Expect::StdErr(Terminal {
+                        number: 1,
+                        text: "error".to_string(),
+                    }),
+                    Expect::Url(Link {
+                        name: "Google".to_string(),
+                        url: "www.google.com".to_string(),
+                    }),
+                    Expect::Image("http://placekitten.com/200/300".to_string()),
+                ],
+            }],
+            labels: Some(vec!["label".to_string()]),
+            links: Some(vec![Link {
+                name: "Google".to_string(),
+                url: "www.google.com".to_string(),
+            }]),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Link {
     pub name: String,

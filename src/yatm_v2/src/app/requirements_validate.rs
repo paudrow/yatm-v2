@@ -1,9 +1,49 @@
+use crate::types::RequirementsFile;
 use anyhow::{Context, Result};
 use common::types::Requirement;
 use serde_yaml;
 use std::path::PathBuf;
 
-pub fn validate_requirements(requirement_dirs: &Vec<PathBuf>) -> Result<()> {
+pub fn validate_requirements_files(requirement_dirs: &Vec<PathBuf>) -> Result<()> {
+    get_requirements_from_files(requirement_dirs)?;
+    Ok(())
+}
+
+pub fn validate_requirements_file(requirement_path: &PathBuf) -> Result<()> {
+    get_requirements_from_file(requirement_path)?;
+    Ok(())
+}
+
+pub fn get_requirements_from_files(requirement_dirs: &Vec<PathBuf>) -> Result<Vec<Requirement>> {
+    let requirement_files = get_requirements_files(&requirement_dirs).context(format!(
+        "Failed to get the requirement files: {:?}",
+        requirement_dirs
+    ))?;
+    let mut all_requirements: Vec<Requirement> = vec![];
+    for requirement_file in requirement_files {
+        let requirements = get_requirements_from_file(&requirement_file).context(format!(
+            "Failed to validate the requirement: {:?}",
+            requirement_file
+        ))?;
+        all_requirements.extend(requirements);
+    }
+    Ok(all_requirements)
+}
+
+pub fn get_requirements_from_file(requirement_path: &PathBuf) -> Result<Vec<Requirement>> {
+    let requirement = std::fs::read_to_string(&requirement_path).context(format!(
+        "Failed to read the requirement file: {:?}",
+        requirement_path
+    ))?;
+    let requirements_file =
+        serde_yaml::from_str::<RequirementsFile>(&requirement).context(format!(
+            "Failed to deserialize the requirement: {:?}",
+            requirement_path
+        ))?;
+    Ok(requirements_file.requirements)
+}
+
+pub fn get_requirements_files(requirement_dirs: &Vec<PathBuf>) -> Result<Vec<PathBuf>> {
     let mut requirements_files: Vec<PathBuf> = vec![];
     for requirement_dir in requirement_dirs {
         let requirement_files = std::fs::read_dir(&requirement_dir).context(format!(
@@ -25,25 +65,7 @@ pub fn validate_requirements(requirement_dirs: &Vec<PathBuf>) -> Result<()> {
             requirement_dirs
         )));
     }
-    for requirement_file in requirements_files {
-        validate_requirement(&requirement_file).context(format!(
-            "Failed to validate the requirement: {:?}",
-            requirement_file
-        ))?;
-    }
-    Ok(())
-}
-
-fn validate_requirement(requirement_path: &PathBuf) -> Result<()> {
-    let requirement = std::fs::read_to_string(&requirement_path).context(format!(
-        "Failed to read the requirement file: {:?}",
-        requirement_path
-    ))?;
-    serde_yaml::from_str::<Requirement>(&requirement).context(format!(
-        "Failed to deserialize the requirement: {:?}",
-        requirement_path
-    ))?;
-    Ok(())
+    Ok(requirements_files)
 }
 
 #[cfg(test)]
@@ -66,9 +88,12 @@ mod test_validate_requirement {
             labels: None,
             links: None,
         };
-        let requirement_str = serde_yaml::to_string(&requirement).unwrap();
-        file.write_all(requirement_str.as_bytes()).unwrap();
-        validate_requirement(&requirement_path).unwrap();
+        let requirements_file = RequirementsFile {
+            requirements: vec![requirement.clone()],
+        };
+        let requirement_file = serde_yaml::to_string(&requirements_file).unwrap();
+        file.write_all(requirement_file.as_bytes()).unwrap();
+        validate_requirements_file(&requirement_path).unwrap();
     }
 
     #[test]
@@ -78,6 +103,6 @@ mod test_validate_requirement {
         let mut file = File::create(&requirement_path).unwrap();
         let requirement_str = "invalid";
         file.write_all(requirement_str.as_bytes()).unwrap();
-        assert!(validate_requirement(&requirement_path).is_err());
+        assert!(validate_requirements_file(&requirement_path).is_err());
     }
 }
