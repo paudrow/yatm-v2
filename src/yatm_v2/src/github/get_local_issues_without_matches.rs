@@ -1,4 +1,4 @@
-use crate::utils::local_issue::LocalIssue;
+use crate::types::LocalIssue;
 use octocrab::models::issues::Issue as GithubIssue;
 
 struct GithubIssueHelper {
@@ -136,10 +136,7 @@ mod test_get_local_issues_without_matches {
     }
 }
 
-pub fn is_local_issue_match_github_issue(
-    local_issue: &LocalIssue,
-    github_issue: &GithubIssue,
-) -> bool {
+fn is_local_issue_match_github_issue(local_issue: &LocalIssue, github_issue: &GithubIssue) -> bool {
     let github_issue_helper = GithubIssueHelper {
         title: github_issue.title.clone(),
         labels: github_issue

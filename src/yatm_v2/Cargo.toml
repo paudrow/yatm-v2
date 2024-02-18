@@ -19,5 +19,6 @@ octocrab = "0.33.4"
 percent-encoding = "2.3.1"
 serde = { version = "1.0.196", features = ["derive"] }
 serde_yaml = "0.9.31"
+tempfile = "3.10.0"
 tokio = { version = "1.36.0", features = ["full"] }
 url = "2.5.0"

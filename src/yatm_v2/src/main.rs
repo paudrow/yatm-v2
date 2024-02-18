@@ -1,11 +1,14 @@
-mod utils;
-use anyhow::{Context, Ok, Result};
-use utils::local_issue;
+mod app;
+mod github;
+mod test_cases;
+mod types;
 
-use crate::utils::github::Github;
-use crate::utils::github_utils::get_local_issues_without_matches;
-use crate::utils::local_issue::LocalIssue;
-use crate::utils::template::get_github_issue_content;
+use anyhow::{Context, Ok, Result};
+use types::LocalIssue;
+
+use crate::github::get_local_issues_without_matches;
+use crate::github::Github;
+use crate::test_cases::test_case_to_markdown;
 
 use chrono;
 use common::types::TestCase;
@@ -94,7 +97,7 @@ fn demo_template() {
         selected_permutation,
     };
 
-    let result = get_github_issue_content(test_case).unwrap();
+    let result = test_case_to_markdown(test_case).unwrap();
     println!("{}", result.title);
     println!("{}", result.text_body);
     println!("{:?}", result.labels);

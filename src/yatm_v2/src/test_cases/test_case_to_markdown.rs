@@ -1,8 +1,7 @@
-use crate::utils::local_issue::LocalIssue;
+use crate::types::LocalIssue;
 use anyhow::{Context, Result};
 use askama::Template;
 use common::types::{Action, Expect, Link, Step, TestCase};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Template, Clone)]
@@ -14,7 +13,7 @@ struct GithubIssueTemplate {
     selected_permutation: HashMap<String, String>,
 }
 
-pub fn get_github_issue_content(test_case: TestCase) -> Result<LocalIssue> {
+pub fn test_case_to_markdown(test_case: TestCase) -> Result<LocalIssue> {
     let labels = get_labels(&test_case);
 
     let template = GithubIssueTemplate {

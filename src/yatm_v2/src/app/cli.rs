@@ -1,5 +1,7 @@
+use crate::app::init_config::init_config;
 use std::path::PathBuf;
 
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 // Define the main application
@@ -72,12 +74,12 @@ enum GithubSubcommands {
     Preview,
 }
 
-pub fn cli() {
+pub fn cli() -> Result<()> {
     let cli = MyApp::parse();
 
     match cli.command {
         Commands::Init { path } => {
-            println!("Creating a new project at {:?}", path);
+            init_config(&path)?;
         }
         Commands::Requirements { subcommand } => match subcommand {
             RequirementsSubcommands::Validate(options) => {
@@ -110,4 +112,5 @@ pub fn cli() {
             }
         },
     }
+    Ok(())
 }
