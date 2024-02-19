@@ -1,11 +1,13 @@
-use crate::types::Config;
+use crate::types::{Config, RequirementsFile, TestCasesBuilderFile};
 use anyhow::{Context, Result};
 use serde_yaml;
 use std::path::PathBuf;
 
-pub fn init_config(dir: &PathBuf) -> Result<()> {
+/// Initialize the configuration directory.
+pub fn init_workspace(dir: &PathBuf) -> Result<()> {
     make_sure_empty_dir_exists(dir)?;
 
+    // Create the config file
     let config = Config::default();
     let config_file = dir.join("config.yaml");
     std::fs::write(
@@ -14,24 +16,36 @@ pub fn init_config(dir: &PathBuf) -> Result<()> {
     )
     .context("Failed to write the config file")?;
 
-    if config.requirements_dirs.len() == 1 {
-        let requirements_dir = dir.join(&config.requirements_dirs[0]);
-        make_sure_empty_dir_exists(&requirements_dir)?;
-        let datetime_string = chrono::Utc::now().format("%Y%m%d%H%M%S").to_string();
-        let requirements_file_path =
-            requirements_dir.join(format!("requirements-{}.yaml", datetime_string));
-        let requirements_file = crate::types::RequirementsFile::default();
-        std::fs::write(
-            &requirements_file_path,
-            serde_yaml::to_string(&requirements_file)
-                .context("Failed to serialize the requirements")?,
-        )?;
-    }
+    // Get the current datetime for naming files
+    let datetime_string = chrono::Utc::now().format("%Y-%m-%d-%H-%M-%S").to_string();
 
+    // Create the requirements directory and file
+    let requirements_dir = dir.join(&config.new_requirements_dir);
+    make_sure_empty_dir_exists(&requirements_dir)?;
+    let requirements_file_path =
+        requirements_dir.join(format!("requirements-{}.yaml", datetime_string));
+    let requirements_file = RequirementsFile::default();
+    std::fs::write(
+        &requirements_file_path,
+        serde_yaml::to_string(&requirements_file)
+            .context("Failed to serialize the requirements")?,
+    )?;
+
+    // Create the test cases builder directory and file
+    let test_cases_builder_dir = dir.join(&config.new_test_cases_builder_dir);
+    make_sure_empty_dir_exists(&test_cases_builder_dir)?;
+    let test_cases_builder_file =
+        test_cases_builder_dir.join(format!("test_cases_builder-{}.yaml", datetime_string));
+    std::fs::write(
+        &test_cases_builder_file,
+        serde_yaml::to_string(&TestCasesBuilderFile::default())
+            .context("Failed to serialize the test cases builder")?,
+    )
+    .context("Failed to write the test cases builder file")?;
+
+    // Create the generated files directory and .gitignore file
     let generated_files_dir = dir.join(&config.generated_files_dir);
     make_sure_empty_dir_exists(&generated_files_dir)?;
-
-    // add a .gitignore file with the generated_files_dir
     let gitignore_file = dir.join(".gitignore");
     std::fs::write(
         &gitignore_file,
@@ -44,26 +58,22 @@ pub fn init_config(dir: &PathBuf) -> Result<()> {
 
 #[cfg(test)]
 mod test_init_config {
-    use super::init_config;
+    use crate::app::load_config::load_config;
+
+    use super::init_workspace;
     use std::fs;
     use tempfile::tempdir;
 
     #[test]
     fn init_config_creates_files() {
         let dir = tempdir().unwrap().path().to_path_buf();
-        init_config(&dir).unwrap();
+        init_workspace(&dir).unwrap();
         assert!(dir.join("config.yaml").is_file());
 
-        let requirements_dir = dir.join("requirements");
-        assert!(requirements_dir.is_dir());
+        let config = load_config(&dir).unwrap();
 
-        // check the requirements file is created
-        let mut entries = fs::read_dir(&requirements_dir).unwrap();
-        assert!(entries.next().is_some());
-        assert!(entries.next().is_none());
-
-        assert!(dir.join(".generated_files").is_dir());
-        assert!(dir.join(".gitignore").is_file());
+        assert!(config.new_requirements_dir.is_dir());
+        assert!(config.new_test_cases_builder_dir.is_dir());
     }
 
     #[test]
@@ -71,14 +81,14 @@ mod test_init_config {
         let dir = tempdir().unwrap().path().to_path_buf();
         fs::create_dir(&dir).unwrap();
         fs::File::create(dir.join("file")).unwrap();
-        assert!(init_config(&dir).is_err());
+        assert!(init_workspace(&dir).is_err());
     }
 
     #[test]
     fn init_config_exists_file() {
         let dir = tempdir().unwrap().path().to_path_buf();
         fs::File::create(&dir).unwrap();
-        assert!(init_config(&dir).is_err());
+        assert!(init_workspace(&dir).is_err());
     }
 }
 

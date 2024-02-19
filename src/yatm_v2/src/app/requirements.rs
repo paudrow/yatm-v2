@@ -4,16 +4,19 @@ use common::types::Requirement;
 use serde_yaml;
 use std::path::PathBuf;
 
+/// Validate the requirements files.
 pub fn validate_requirements_files(requirement_dirs: &Vec<PathBuf>) -> Result<()> {
     get_requirements_from_files(requirement_dirs)?;
     Ok(())
 }
 
+/// Validate the requirements file.
 pub fn validate_requirements_file(requirement_path: &PathBuf) -> Result<()> {
     get_requirements_from_file(requirement_path)?;
     Ok(())
 }
 
+/// Get the requirements from the files.
 pub fn get_requirements_from_files(requirement_dirs: &Vec<PathBuf>) -> Result<Vec<Requirement>> {
     let requirement_files = get_requirements_files(&requirement_dirs).context(format!(
         "Failed to get the requirement files: {:?}",
@@ -30,6 +33,7 @@ pub fn get_requirements_from_files(requirement_dirs: &Vec<PathBuf>) -> Result<Ve
     Ok(all_requirements)
 }
 
+/// Get the requirements from a file.
 pub fn get_requirements_from_file(requirement_path: &PathBuf) -> Result<Vec<Requirement>> {
     let requirement = std::fs::read_to_string(&requirement_path).context(format!(
         "Failed to read the requirement file: {:?}",
@@ -43,6 +47,7 @@ pub fn get_requirements_from_file(requirement_path: &PathBuf) -> Result<Vec<Requ
     Ok(requirements_file.requirements)
 }
 
+/// Get the requirements file paths.
 pub fn get_requirements_files(requirement_dirs: &Vec<PathBuf>) -> Result<Vec<PathBuf>> {
     let mut requirements_files: Vec<PathBuf> = vec![];
     for requirement_dir in requirement_dirs {

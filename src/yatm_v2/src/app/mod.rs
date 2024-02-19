@@ -1,6 +1,6 @@
 mod cli;
-mod init_config;
+mod init_workspace;
 mod load_config;
-mod requirements_validate;
+mod requirements;
 
 pub use cli::cli;

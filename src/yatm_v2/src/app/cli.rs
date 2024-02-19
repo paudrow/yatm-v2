@@ -1,20 +1,19 @@
 use crate::app::load_config::load_config;
-use crate::app::requirements_validate::get_requirements_from_files;
+use crate::app::requirements::get_requirements_from_files;
 use crate::app::{
-    init_config::init_config,
-    requirements_validate::{
+    init_workspace::init_workspace,
+    requirements::{
         get_requirements_from_file, validate_requirements_file, validate_requirements_files,
     },
 };
-use crate::types::RequirementsFile;
-use common::types::Requirement;
+use crate::types::{RequirementsFile, TestCasesBuilderFile};
 
 use std::path::PathBuf;
 
 use anyhow::{Context, Ok, Result};
 use clap::{Parser, Subcommand};
 
-use super::requirements_validate::get_requirements_files;
+use super::requirements::get_requirements_files;
 
 // Define the main application
 #[derive(Parser)]
@@ -27,9 +26,9 @@ struct App {
 // Define the top-level subcommands
 #[derive(Subcommand)]
 enum Commands {
-    /// Create a directory to start working from
+    /// Create a new YATM workspace
     Init {
-        /// The path to the project
+        /// The path to the new workspace
         #[clap(short, long)]
         path: PathBuf,
     },
@@ -91,6 +90,14 @@ struct Subcommand1Options {
 
 #[derive(Subcommand)]
 enum TestCasesSubcommands {
+    /// Create a new test case builder
+    New {
+        /// The path to the project
+        #[clap(short, long, default_value = ".")]
+        config_path: PathBuf,
+        #[clap(short, long)]
+        file_name: Option<String>,
+    },
     /// Check the test cases
     Validate,
     /// List the test cases
@@ -113,8 +120,8 @@ pub fn cli() -> Result<()> {
     let app = App::parse();
     match app.command {
         Commands::Init { path } => {
-            init_config(&path)?;
-            println!("Created the project in {:?}", path);
+            init_workspace(&path)?;
+            println!("Created a YATM workspace in {:?}", path);
         }
         Commands::Requirements { subcommand } => match subcommand {
             RequirementsSubcommands::New {
@@ -133,10 +140,7 @@ pub fn cli() -> Result<()> {
                     }
                 };
 
-                if config.requirements_dirs.len() < 1 {
-                    anyhow::bail!("No requirements directories found");
-                }
-                let requirements_file_path = config.requirements_dirs[0].join(file_name);
+                let requirements_file_path = config.new_requirements_dir.join(file_name);
                 if requirements_file_path.exists() {
                     anyhow::bail!(
                         "The requirements file already exists: {:?}",
@@ -187,6 +191,44 @@ pub fn cli() -> Result<()> {
             }
         },
         Commands::TestCases { subcommand } => match subcommand {
+            TestCasesSubcommands::New {
+                config_path,
+                file_name,
+            } => {
+                let config = load_config(&config_path)?;
+
+                let file_name = match file_name {
+                    Some(file_name) => file_name,
+                    None => {
+                        // get datetime string in current timezone
+                        let datetime_string =
+                            chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
+                        format!("test_cases_builder-{}.yaml", datetime_string)
+                    }
+                };
+
+                let test_cases_builder_file_path =
+                    config.new_test_cases_builder_dir.join(file_name);
+                if test_cases_builder_file_path.exists() {
+                    anyhow::bail!(
+                        "The test cases builder file already exists: {:?}",
+                        test_cases_builder_file_path
+                    );
+                }
+                let test_cases_builder_file = TestCasesBuilderFile::default();
+                let test_cases_builder_file = serde_yaml::to_string(&test_cases_builder_file)
+                    .context("Failed to turn test cases builder file into a string")?;
+                std::fs::write(&test_cases_builder_file_path, test_cases_builder_file).context(
+                    format!(
+                        "Failed to write the test cases builder file: {:?}",
+                        test_cases_builder_file_path
+                    ),
+                )?;
+                println!(
+                    "Created the test cases builder file: {:?}",
+                    test_cases_builder_file_path
+                );
+            }
             TestCasesSubcommands::Validate => {
                 println!("Running validate");
             }
@@ -220,6 +262,8 @@ mod test_cli {
     use predicates::prelude::predicate;
     use tempfile::tempdir;
 
+    use crate::app::load_config::load_config;
+
     fn get_command() -> Command {
         Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap()
     }
@@ -249,15 +293,18 @@ mod test_cli {
         cmd.args(&["init", "--path", dir.to_str().unwrap()])
             .assert()
             .success()
-            .stdout(predicate::str::contains("Created the project in"));
+            .stdout(predicate::str::contains("Created a YATM workspace in"));
+
+        // load the config
+        assert!(dir.join("config.yaml").is_file());
+        let config = load_config(&dir).unwrap();
 
         // check that files are generated correctly
-        assert!(dir.join("config.yaml").is_file());
-        assert!(dir.join(".generated_files").is_dir());
+        assert!(config.new_requirements_dir.is_dir());
+        assert!(config.new_test_cases_builder_dir.is_dir());
+        assert!(config.generated_files_dir.is_dir());
         assert!(dir.join(".gitignore").is_file());
-        let requirements_dir = dir.join("requirements");
-        assert!(requirements_dir.is_dir());
-        assert_eq!(get_number_of_files_in_dir(&requirements_dir), 1);
+        assert_eq!(get_number_of_files_in_dir(&config.new_requirements_dir), 1);
 
         // run the requirements new command
         let new_requirements_file_name = "my-test-requirements.yaml";
@@ -272,9 +319,10 @@ mod test_cli {
         ])
         .assert()
         .success();
-        let new_requirements_file_path = requirements_dir.join(new_requirements_file_name);
+        let new_requirements_file_path =
+            config.new_requirements_dir.join(new_requirements_file_name);
         assert!(new_requirements_file_path.is_file());
-        assert_eq!(get_number_of_files_in_dir(&requirements_dir), 2);
+        assert_eq!(get_number_of_files_in_dir(&config.new_requirements_dir), 2);
 
         // run the requirements new command without a file name
         let mut cmd = get_command();
@@ -286,7 +334,7 @@ mod test_cli {
         ])
         .assert()
         .success();
-        assert_eq!(get_number_of_files_in_dir(&requirements_dir), 3);
+        assert_eq!(get_number_of_files_in_dir(&config.new_requirements_dir), 3);
 
         // run the requirements list command
         let mut cmd = get_command();
