@@ -17,6 +17,15 @@ pub fn init_config(dir: &PathBuf) -> Result<()> {
     if config.requirements_dirs.len() == 1 {
         let requirements_dir = dir.join(&config.requirements_dirs[0]);
         make_sure_empty_dir_exists(&requirements_dir)?;
+        let datetime_string = chrono::Utc::now().format("%Y%m%d%H%M%S").to_string();
+        let requirements_file_path =
+            requirements_dir.join(format!("requirements-{}.yaml", datetime_string));
+        let requirements_file = crate::types::RequirementsFile::default();
+        std::fs::write(
+            &requirements_file_path,
+            serde_yaml::to_string(&requirements_file)
+                .context("Failed to serialize the requirements")?,
+        )?;
     }
 
     let generated_files_dir = dir.join(&config.generated_files_dir);
@@ -44,7 +53,15 @@ mod test_init_config {
         let dir = tempdir().unwrap().path().to_path_buf();
         init_config(&dir).unwrap();
         assert!(dir.join("config.yaml").is_file());
-        assert!(dir.join("requirements").is_dir());
+
+        let requirements_dir = dir.join("requirements");
+        assert!(requirements_dir.is_dir());
+
+        // check the requirements file is created
+        let mut entries = fs::read_dir(&requirements_dir).unwrap();
+        assert!(entries.next().is_some());
+        assert!(entries.next().is_none());
+
         assert!(dir.join(".generated_files").is_dir());
         assert!(dir.join(".gitignore").is_file());
     }

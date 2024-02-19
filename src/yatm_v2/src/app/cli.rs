@@ -19,7 +19,7 @@ use super::requirements_validate::get_requirements_files;
 // Define the main application
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
-struct MyApp {
+struct App {
     #[clap(subcommand)]
     pub command: Commands,
 }
@@ -57,8 +57,8 @@ enum RequirementsSubcommands {
         /// The path to the project
         #[clap(short, long, default_value = ".")]
         config_path: PathBuf,
-        #[clap(short, long, default_value = "requirements.yaml")]
-        file_name: String,
+        #[clap(short, long)]
+        file_name: Option<String>,
     },
     /// Check the requirements
     Validate {
@@ -110,11 +110,11 @@ enum GithubSubcommands {
 }
 
 pub fn cli() -> Result<()> {
-    let cli = MyApp::parse();
-
-    match cli.command {
+    let app = App::parse();
+    match app.command {
         Commands::Init { path } => {
             init_config(&path)?;
+            println!("Created the project in {:?}", path);
         }
         Commands::Requirements { subcommand } => match subcommand {
             RequirementsSubcommands::New {
@@ -122,6 +122,17 @@ pub fn cli() -> Result<()> {
                 file_name,
             } => {
                 let config = load_config(&config_path)?;
+
+                let file_name = match file_name {
+                    Some(file_name) => file_name,
+                    None => {
+                        // get datetime string in current timezone
+                        let datetime_string =
+                            chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
+                        format!("requirements-{}.yaml", datetime_string)
+                    }
+                };
+
                 if config.requirements_dirs.len() < 1 {
                     anyhow::bail!("No requirements directories found");
                 }
@@ -157,15 +168,21 @@ pub fn cli() -> Result<()> {
                 let config = load_config(&config_path)?;
                 let requirements_files = get_requirements_files(&config.requirements_dirs)?;
                 for requirement_file in requirements_files {
-                    println!("Requirements file: {:?}", requirement_file.to_str());
+                    println!(
+                        "{}",
+                        requirement_file
+                            .to_str()
+                            .context("Failed to convert the path to a string")?
+                    );
                     let requirements = get_requirements_from_file(&requirement_file)?;
                     for requirement in requirements {
                         let labels_string = match requirement.labels {
                             Some(labels) => format!(" - labels: {}", labels.join(", ")),
                             None => "".to_string(),
                         };
-                        println!(" - {}{}", requirement.name, labels_string);
+                        println!(" * {}{}", requirement.name, labels_string);
                     }
+                    println!();
                 }
             }
         },
@@ -193,4 +210,115 @@ pub fn cli() -> Result<()> {
         },
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod test_cli {
+    use std::path::PathBuf;
+
+    use assert_cmd::Command;
+    use predicates::prelude::predicate;
+    use tempfile::tempdir;
+
+    fn get_command() -> Command {
+        Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap()
+    }
+
+    fn get_number_of_files_in_dir(dir: &PathBuf) -> usize {
+        let entries = std::fs::read_dir(dir).unwrap();
+        entries.count()
+    }
+
+    #[test]
+    fn test_help() {
+        for arg in &["-h", "--help"] {
+            let mut cmd = get_command();
+            cmd.arg(arg)
+                .assert()
+                .success()
+                .stdout(predicate::str::contains("Usage"));
+        }
+    }
+
+    #[test]
+    fn full_requirements_test() {
+        let dir = tempdir().unwrap().path().to_path_buf();
+
+        // run the init command
+        let mut cmd = get_command();
+        cmd.args(&["init", "--path", dir.to_str().unwrap()])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("Created the project in"));
+
+        // check that files are generated correctly
+        assert!(dir.join("config.yaml").is_file());
+        assert!(dir.join(".generated_files").is_dir());
+        assert!(dir.join(".gitignore").is_file());
+        let requirements_dir = dir.join("requirements");
+        assert!(requirements_dir.is_dir());
+        assert_eq!(get_number_of_files_in_dir(&requirements_dir), 1);
+
+        // run the requirements new command
+        let new_requirements_file_name = "my-test-requirements.yaml";
+        let mut cmd = get_command();
+        cmd.args(&[
+            "requirements",
+            "new",
+            "--config-path",
+            dir.to_str().unwrap(),
+            "--file-name",
+            new_requirements_file_name,
+        ])
+        .assert()
+        .success();
+        let new_requirements_file_path = requirements_dir.join(new_requirements_file_name);
+        assert!(new_requirements_file_path.is_file());
+        assert_eq!(get_number_of_files_in_dir(&requirements_dir), 2);
+
+        // run the requirements new command without a file name
+        let mut cmd = get_command();
+        cmd.args(&[
+            "requirements",
+            "new",
+            "--config-path",
+            dir.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+        assert_eq!(get_number_of_files_in_dir(&requirements_dir), 3);
+
+        // run the requirements list command
+        let mut cmd = get_command();
+        cmd.args(&[
+            "requirements",
+            "list",
+            "--config-path",
+            dir.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+        // run the requirements validate command
+        let mut cmd = get_command();
+        cmd.args(&[
+            "requirements",
+            "validate",
+            "--config-path",
+            dir.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+        // run the requirements validate file command
+        let mut cmd = get_command();
+        cmd.args(&[
+            "requirements",
+            "validate-file",
+            "--file-path",
+            new_requirements_file_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    }
 }
