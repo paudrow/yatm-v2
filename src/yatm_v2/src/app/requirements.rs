@@ -1,4 +1,6 @@
+use crate::app::constants::YAML_EXTENSIONS;
 use crate::types::RequirementsFile;
+use crate::utils::get_files;
 use anyhow::{Context, Result};
 use common::types::Requirement;
 use serde_yaml;
@@ -14,63 +16,6 @@ pub fn validate_requirements_files(requirement_dirs: &Vec<PathBuf>) -> Result<()
 pub fn validate_requirements_file(requirement_path: &PathBuf) -> Result<()> {
     get_requirements_from_file(requirement_path)?;
     Ok(())
-}
-
-/// Get the requirements from the files.
-pub fn get_requirements_from_files(requirement_dirs: &Vec<PathBuf>) -> Result<Vec<Requirement>> {
-    let requirement_files = get_requirements_files(&requirement_dirs).context(format!(
-        "Failed to get the requirement files: {:?}",
-        requirement_dirs
-    ))?;
-    let mut all_requirements: Vec<Requirement> = vec![];
-    for requirement_file in requirement_files {
-        let requirements = get_requirements_from_file(&requirement_file).context(format!(
-            "Failed to validate the requirement: {:?}",
-            requirement_file
-        ))?;
-        all_requirements.extend(requirements);
-    }
-    Ok(all_requirements)
-}
-
-/// Get the requirements from a file.
-pub fn get_requirements_from_file(requirement_path: &PathBuf) -> Result<Vec<Requirement>> {
-    let requirement = std::fs::read_to_string(&requirement_path).context(format!(
-        "Failed to read the requirement file: {:?}",
-        requirement_path
-    ))?;
-    let requirements_file =
-        serde_yaml::from_str::<RequirementsFile>(&requirement).context(format!(
-            "Failed to deserialize the requirement: {:?}",
-            requirement_path
-        ))?;
-    Ok(requirements_file.requirements)
-}
-
-/// Get the requirements file paths.
-pub fn get_requirements_files(requirement_dirs: &Vec<PathBuf>) -> Result<Vec<PathBuf>> {
-    let mut requirements_files: Vec<PathBuf> = vec![];
-    for requirement_dir in requirement_dirs {
-        let requirement_files = std::fs::read_dir(&requirement_dir).context(format!(
-            "Failed to read the requirement directory: {:?}",
-            requirement_dir
-        ))?;
-        for requirement_file in requirement_files {
-            let requirement_file = requirement_file.context(format!(
-                "Failed to read the entry in the requirement directory: {:?}",
-                requirement_dir
-            ))?;
-            let requirement_path = requirement_file.path();
-            requirements_files.push(requirement_path);
-        }
-    }
-    if requirements_files.is_empty() {
-        return Err(anyhow::anyhow!(format!(
-            "No requirement files found: {:#?}",
-            requirement_dirs
-        )));
-    }
-    Ok(requirements_files)
 }
 
 #[cfg(test)]
@@ -110,4 +55,35 @@ mod test_validate_requirement {
         file.write_all(requirement_str.as_bytes()).unwrap();
         assert!(validate_requirements_file(&requirement_path).is_err());
     }
+}
+
+/// Get the requirements from the files.
+pub fn get_requirements_from_files(requirement_dirs: &Vec<PathBuf>) -> Result<Vec<Requirement>> {
+    let requirement_files = get_files(&requirement_dirs, &YAML_EXTENSIONS).context(format!(
+        "Failed to get the requirement files: {:?}",
+        requirement_dirs
+    ))?;
+    let mut all_requirements: Vec<Requirement> = vec![];
+    for requirement_file in requirement_files {
+        let requirements = get_requirements_from_file(&requirement_file).context(format!(
+            "Failed to validate the requirement: {:?}",
+            requirement_file
+        ))?;
+        all_requirements.extend(requirements);
+    }
+    Ok(all_requirements)
+}
+
+/// Get the requirements from a file.
+pub fn get_requirements_from_file(requirement_path: &PathBuf) -> Result<Vec<Requirement>> {
+    let requirement = std::fs::read_to_string(&requirement_path).context(format!(
+        "Failed to read the requirement file: {:?}",
+        requirement_path
+    ))?;
+    let requirements_file =
+        serde_yaml::from_str::<RequirementsFile>(&requirement).context(format!(
+            "Failed to deserialize the requirement: {:?}",
+            requirement_path
+        ))?;
+    Ok(requirements_file.requirements)
 }

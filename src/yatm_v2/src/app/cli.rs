@@ -1,5 +1,5 @@
+use crate::app::constants::YAML_EXTENSIONS;
 use crate::app::load_config::load_config;
-use crate::app::requirements::get_requirements_from_files;
 use crate::app::{
     init_workspace::init_workspace,
     requirements::{
@@ -7,13 +7,12 @@ use crate::app::{
     },
 };
 use crate::types::{RequirementsFile, TestCasesBuilderFile};
+use crate::utils::get_files;
 
 use std::path::PathBuf;
 
 use anyhow::{Context, Ok, Result};
 use clap::{Parser, Subcommand};
-
-use super::requirements::get_requirements_files;
 
 // Define the main application
 #[derive(Parser)]
@@ -170,7 +169,7 @@ pub fn cli() -> Result<()> {
             }
             RequirementsSubcommands::List { config_path } => {
                 let config = load_config(&config_path)?;
-                let requirements_files = get_requirements_files(&config.requirements_dirs)?;
+                let requirements_files = get_files(&config.requirements_dirs, &YAML_EXTENSIONS)?;
                 for requirement_file in requirements_files {
                     println!(
                         "{}",
@@ -285,7 +284,7 @@ mod test_cli {
     }
 
     #[test]
-    fn full_requirements_test() {
+    fn test_init() {
         let dir = tempdir().unwrap().path().to_path_buf();
 
         // run the init command
@@ -305,6 +304,21 @@ mod test_cli {
         assert!(config.generated_files_dir.is_dir());
         assert!(dir.join(".gitignore").is_file());
         assert_eq!(get_number_of_files_in_dir(&config.new_requirements_dir), 1);
+    }
+
+    #[test]
+    fn test_requirements() {
+        let dir = tempdir().unwrap().path().to_path_buf();
+
+        // run the init command
+        let mut cmd = get_command();
+        cmd.args(&["init", "--path", dir.to_str().unwrap()])
+            .assert()
+            .success();
+
+        // load the config
+        assert!(dir.join("config.yaml").is_file());
+        let config = load_config(&dir).unwrap();
 
         // run the requirements new command
         let new_requirements_file_name = "my-test-requirements.yaml";

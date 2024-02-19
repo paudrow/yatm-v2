@@ -2,6 +2,7 @@ mod app;
 mod github;
 mod test_cases;
 mod types;
+mod utils;
 
 use anyhow::{Context, Ok, Result};
 use types::LocalIssue;
