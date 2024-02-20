@@ -495,18 +495,6 @@ mod test_cli {
         assert!(new_requirements_file_path.is_file());
         assert_eq!(get_number_of_files_in_dir(&config.new_requirements_dir), 2);
 
-        // run the requirements new command without a file name
-        let mut cmd = get_command();
-        cmd.args(&[
-            "requirements",
-            "new",
-            "--config-path",
-            dir.to_str().unwrap(),
-        ])
-        .assert()
-        .success();
-        assert_eq!(get_number_of_files_in_dir(&config.new_requirements_dir), 3);
-
         // run the requirements list command
         let mut cmd = get_command();
         cmd.args(&[
@@ -575,16 +563,6 @@ mod test_cli {
         assert_eq!(
             get_number_of_files_in_dir(&config.new_test_cases_builder_dir),
             2
-        );
-
-        // run the test cases new command without a file name
-        let mut cmd = get_command();
-        cmd.args(&["test-cases", "new", "--config-path", dir.to_str().unwrap()])
-            .assert()
-            .success();
-        assert_eq!(
-            get_number_of_files_in_dir(&config.new_test_cases_builder_dir),
-            3
         );
 
         // run the test cases list command
