@@ -1,4 +1,4 @@
-use common::types::TestCasesBuilder;
+use crate::types::TestCasesBuilder;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -1,5 +1,5 @@
 use crate::app::constants::YAML_EXTENSIONS;
-use crate::types::TestCasesBuilderFile;
+use common::types::TestCasesBuilderFile;
 use crate::utils::get_files;
 use anyhow::{Context, Result};
 use common::types::TestCasesBuilder;

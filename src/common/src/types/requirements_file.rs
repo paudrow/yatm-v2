@@ -1,4 +1,4 @@
-use common::types::Requirement;
+use crate::types::Requirement;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

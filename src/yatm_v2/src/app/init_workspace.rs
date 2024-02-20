@@ -1,4 +1,5 @@
-use crate::types::{Config, RequirementsFile, TestCasesBuilderFile};
+use crate::types::Config;
+use common::types::{RequirementsFile, TestCasesBuilderFile};
 use anyhow::{Context, Result};
 use serde_yaml;
 use std::path::PathBuf;

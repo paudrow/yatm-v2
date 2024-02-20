@@ -10,7 +10,7 @@ use crate::app::{
 };
 use crate::github::{get_local_issues_without_matches, Github};
 use crate::test_cases::test_case_to_markdown;
-use crate::types::{RequirementsFile, TestCasesBuilderFile};
+use common::types::{RequirementsFile, TestCasesBuilderFile};
 use crate::utils::get_files;
 
 use core::num;
