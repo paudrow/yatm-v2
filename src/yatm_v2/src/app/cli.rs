@@ -1,12 +1,9 @@
 use crate::app::init_workspace::init_workspace;
 use crate::app::load_config::load_config;
 use crate::constants::YAML_EXTENSIONS;
-use crate::helpers::get_files;
-use crate::helpers::get_local_issues_without_matches;
-use crate::helpers::get_test_cases;
-use crate::helpers::test_case_to_markdown;
 use crate::helpers::{
-    get_requirements_from_file, get_test_cases_builders_from_file, validate_requirements_file,
+    get_files, get_local_issues_without_matches, get_requirements_from_file, get_test_cases,
+    get_test_cases_builders_from_file, test_case_to_markdown, validate_requirements_file,
     validate_requirements_files, validate_test_cases_builder_file,
 };
 use common::github::Github;

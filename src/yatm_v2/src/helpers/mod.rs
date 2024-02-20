@@ -11,11 +11,7 @@ pub use get_local_issues_without_matches::get_local_issues_without_matches;
 pub use get_test_cases::get_test_cases;
 pub use make_test_cases::make_test_cases;
 pub use requirements::{
-    get_requirements_from_file, validate_requirements_file,
-    validate_requirements_files,
+    get_requirements_from_file, validate_requirements_file, validate_requirements_files,
 };
 pub use test_case_to_markdown::test_case_to_markdown;
-pub use test_cases_builder::{
-    get_test_cases_builders_from_file,
-    validate_test_cases_builder_file,
-};
+pub use test_cases_builder::{get_test_cases_builders_from_file, validate_test_cases_builder_file};
