@@ -26,7 +26,7 @@ impl Config {
             new_requirements_dir: PathBuf::new().join(requirements_dir),
             test_cases_builders_dirs: vec![PathBuf::new().join(test_cases_builder_dir)],
             new_test_cases_builder_dir: PathBuf::new().join(test_cases_builder_dir),
-            generated_files_dir: PathBuf::new().join(".generated_files"),
+            generated_files_dir: PathBuf::new().join("generated_files"),
         }
     }
 }

@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use askama::filters::format;
 use async_recursion::async_recursion;
 use dotenv::dotenv;
 use octocrab::models::issues::Issue;
@@ -14,7 +15,7 @@ pub struct Github {
 }
 
 impl Github {
-    pub fn new(owner: String, repo: String) -> Result<Self> {
+    pub fn new(owner: &String, repo: &String) -> Result<Self> {
         dotenv().ok();
 
         let token = std::env::var("GITHUB_TOKEN").context("GITHUB_TOKEN not set")?;
@@ -24,8 +25,8 @@ impl Github {
                 .personal_token(token)
                 .build()
                 .context("Failed to create octocrab")?,
-            owner,
-            repo,
+            owner: owner.clone(),
+            repo: repo.clone(),
         })
     }
 
@@ -36,7 +37,10 @@ impl Github {
             .list_labels_for_repo()
             .send()
             .await
-            .context("Failed to list labels")?;
+            .context(format!(
+                "Failed to list labels for {}/{}",
+                self.owner, self.repo
+            ))?;
 
         for label in labels {
             let label_name = percent_encoding::utf8_percent_encode(
@@ -48,7 +52,10 @@ impl Github {
                 .issues(&self.owner, &self.repo)
                 .delete_label(&label_name)
                 .await
-                .context("Failed to delete label")?;
+                .context(format!(
+                    "Failed to delete label '{}' in {}/{}",
+                    &label_name, self.owner, self.repo
+                ))?;
         }
 
         Ok(())
@@ -60,7 +67,10 @@ impl Github {
                 .issues(&self.owner, &self.repo)
                 .create_label(&label, "000000", "")
                 .await
-                .context(format!("Failed to create label: {}", &label))?;
+                .context(format!(
+                    "Failed to create label '{}' in {}/{}",
+                    &label, self.owner, self.repo
+                ))?;
         }
         Ok(())
     }
@@ -89,7 +99,10 @@ impl Github {
             .page(page)
             .send()
             .await
-            .context("Failed to list issues")?;
+            .context(format!(
+                "Failed to list issues in {}/{}",
+                self.owner, self.repo
+            ))?;
         Ok(page.items)
     }
 
@@ -129,18 +142,18 @@ impl Github {
     }
 
     pub async fn close_all_issues(&self) -> Result<()> {
-        let issues = self
-            .get_issues(Some(State::Open))
-            .await
-            .context("Failed to get issues")?;
+        let issues = self.get_issues(Some(State::Open)).await.context(format!(
+            "Failed to get issues in {}/{}",
+            self.owner, self.repo
+        ))?;
 
         for issue in issues {
-            self.close_issue(issue).await?;
+            self.close_issue(&issue).await?;
         }
         Ok(())
     }
 
-    pub async fn close_issue(&self, issue: Issue) -> Result<()> {
+    pub async fn close_issue(&self, issue: &Issue) -> Result<()> {
         self.octocrab
             .issues(&self.owner, &self.repo)
             .update(issue.number)
@@ -148,8 +161,8 @@ impl Github {
             .send()
             .await
             .context(format!(
-                "Failed to delete issue: #{} {}",
-                issue.number, issue.title
+                "Failed to delete issue #{} {} in {}/{}",
+                issue.number, issue.title, self.owner, self.repo
             ))?;
         Ok(())
     }

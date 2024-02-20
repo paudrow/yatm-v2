@@ -25,7 +25,7 @@ impl Requirement {
                         name: "Google".to_string(),
                         url: "www.google.com".to_string(),
                     }),
-                    Action::Image("http://placekitten.com/200/300".to_string()),
+                    Action::Image("https://placekitten.com/200/300".to_string()),
                 ],
                 expect: vec![
                     Expect::Describe("expect".to_string()),
@@ -41,7 +41,7 @@ impl Requirement {
                         name: "Google".to_string(),
                         url: "www.google.com".to_string(),
                     }),
-                    Expect::Image("http://placekitten.com/200/300".to_string()),
+                    Expect::Image("https://placekitten.com/200/300".to_string()),
                 ],
             }],
             labels: Some(vec!["label".to_string()]),

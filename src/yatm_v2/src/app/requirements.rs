@@ -21,7 +21,6 @@ pub fn validate_requirements_file(requirement_path: &PathBuf) -> Result<()> {
 #[cfg(test)]
 mod test_validate_requirement {
     use super::*;
-    use common::types::Requirement;
     use std::fs::File;
     use std::io::Write;
     use tempfile::tempdir;
@@ -31,18 +30,9 @@ mod test_validate_requirement {
         let dir = tempdir().unwrap();
         let requirement_path = dir.path().join("requirement.yaml");
         let mut file = File::create(&requirement_path).unwrap();
-        let requirement = Requirement {
-            name: "name".to_string(),
-            description: "description".to_string(),
-            steps: vec![],
-            labels: None,
-            links: None,
-        };
-        let requirements_file = RequirementsFile {
-            requirements: vec![requirement.clone()],
-        };
-        let requirement_file = serde_yaml::to_string(&requirements_file).unwrap();
-        file.write_all(requirement_file.as_bytes()).unwrap();
+        let requirements_file = RequirementsFile::default();
+        let requirements_file = serde_yaml::to_string(&requirements_file).unwrap();
+        file.write_all(requirements_file.as_bytes()).unwrap();
         validate_requirements_file(&requirement_path).unwrap();
     }
 

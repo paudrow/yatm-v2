@@ -12,7 +12,7 @@ struct GithubIssueHelper {
 /// still be considered a match. This is to allow for additional tags to be added
 /// to the github issues, such as help wanted, bug, etc.
 pub fn get_local_issues_without_matches(
-    local_issues: Vec<LocalIssue>,
+    local_issues: &Vec<LocalIssue>,
     github_issues: &Vec<GithubIssue>,
 ) -> Vec<LocalIssue> {
     let github_issues: Vec<GithubIssueHelper> = github_issues
@@ -27,11 +27,11 @@ pub fn get_local_issues_without_matches(
                 .collect(),
         })
         .collect();
-    get_local_issues_without_matches_helper(local_issues, &github_issues)
+    get_local_issues_without_matches_helper(&local_issues, &github_issues)
 }
 
 fn get_local_issues_without_matches_helper(
-    local_issues: Vec<LocalIssue>,
+    local_issues: &Vec<LocalIssue>,
     github_issues: &Vec<GithubIssueHelper>,
 ) -> Vec<LocalIssue> {
     local_issues
@@ -74,7 +74,7 @@ mod test_get_local_issues_without_matches {
                 title: "title4".to_string(),
             },
         ];
-        let result = get_local_issues_without_matches_helper(local_issues, &github_issues);
+        let result = get_local_issues_without_matches_helper(&local_issues, &github_issues);
         assert_eq!(result.len(), 2);
     }
 
@@ -102,7 +102,7 @@ mod test_get_local_issues_without_matches {
                 title: "title2".to_string(),
             },
         ];
-        let result = get_local_issues_without_matches_helper(local_issues, &github_issues);
+        let result = get_local_issues_without_matches_helper(&local_issues, &github_issues);
         assert_eq!(result.len(), 0);
     }
 
@@ -130,23 +130,10 @@ mod test_get_local_issues_without_matches {
                 title: "title3".to_string(),
             },
         ];
-        let result = get_local_issues_without_matches_helper(local_issues, &github_issues);
+        let result = get_local_issues_without_matches_helper(&local_issues, &github_issues);
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].title, "title2");
     }
-}
-
-fn is_local_issue_match_github_issue(local_issue: &LocalIssue, github_issue: &GithubIssue) -> bool {
-    let github_issue_helper = GithubIssueHelper {
-        title: github_issue.title.clone(),
-        labels: github_issue
-            .labels
-            .clone()
-            .iter()
-            .map(|label| label.name.clone())
-            .collect(),
-    };
-    is_local_issue_match_github_issue_helper(local_issue, &github_issue_helper)
 }
 
 fn is_local_issue_match_github_issue_helper(

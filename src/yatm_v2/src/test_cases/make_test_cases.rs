@@ -3,8 +3,22 @@ use std::collections::HashMap;
 use common::types::{Filter, Requirement, SetSteps, TestCase, TestCasesBuilder};
 use itertools::Itertools;
 
-/// Returns a vector of test cases based on the test case builder and requirements
 pub fn make_test_cases(
+    test_cases_builder: &Vec<TestCasesBuilder>,
+    requirements: &Vec<Requirement>,
+) -> Vec<TestCase> {
+    let mut test_cases = Vec::new();
+    for test_cases_builder in test_cases_builder.iter() {
+        test_cases.append(&mut make_test_cases_helper(
+            test_cases_builder,
+            requirements,
+        ));
+    }
+    test_cases
+}
+
+/// Returns a vector of test cases based on the test case builder and requirements
+fn make_test_cases_helper(
     test_cases_builder: &TestCasesBuilder,
     requirements: &Vec<Requirement>,
 ) -> Vec<TestCase> {
@@ -28,7 +42,7 @@ pub fn make_test_cases(
 
 #[cfg(test)]
 mod test_make_test_cases {
-    use super::make_test_cases;
+    use super::make_test_cases_helper;
     use common::types::{Filter, Requirement, SetSteps, TestCase, TestCasesBuilder};
 
     fn is_match_test_cases(actual: &Vec<TestCase>, expected: &Vec<TestCase>) -> bool {
@@ -86,7 +100,7 @@ mod test_make_test_cases {
             },
             version: 1,
         };
-        let result = make_test_cases(&test_cases_builder, &requirements);
+        let result = make_test_cases_helper(&test_cases_builder, &requirements);
         let expected = vec![
             TestCase {
                 requirement: requirements[0].clone(),
@@ -176,7 +190,7 @@ mod test_make_test_cases {
             },
             version: 1,
         };
-        let result = make_test_cases(&test_cases_builder, &requirements);
+        let result = make_test_cases_helper(&test_cases_builder, &requirements);
         let expected = vec![
             TestCase {
                 requirement: requirements[0].clone(),
@@ -252,7 +266,7 @@ mod test_make_test_cases {
             permutations: Default::default(),
             version: 1,
         };
-        let result = make_test_cases(&test_cases_builder, &requirements);
+        let result = make_test_cases_helper(&test_cases_builder, &requirements);
         let expected: Vec<TestCase> = vec![];
         assert!(is_match_test_cases(&result, &expected));
     }
