@@ -1,6 +1,6 @@
-use crate::app::requirements::get_requirements_from_files;
-use crate::app::test_cases_builder::get_test_cases_builders_from_files;
-use crate::test_cases::make_test_cases;
+use crate::helpers::make_test_cases;
+use crate::helpers::requirements::get_requirements_from_files;
+use crate::helpers::test_cases_builder::get_test_cases_builders_from_files;
 use crate::types::Config;
 
 use anyhow::{Context, Result};
