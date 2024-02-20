@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Context, Result};
-use askama::filters::format;
 use async_recursion::async_recursion;
 use dotenv::dotenv;
 use octocrab::models::issues::Issue;

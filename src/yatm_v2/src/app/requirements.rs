@@ -1,8 +1,8 @@
 use crate::app::constants::YAML_EXTENSIONS;
-use common::types::RequirementsFile;
 use crate::utils::get_files;
 use anyhow::{Context, Result};
 use common::types::Requirement;
+use common::types::RequirementsFile;
 use serde_yaml;
 use std::path::PathBuf;
 

@@ -1,6 +1,6 @@
 use crate::types::Config;
-use common::types::{RequirementsFile, TestCasesBuilderFile};
 use anyhow::{Context, Result};
+use common::types::{RequirementsFile, TestCasesBuilderFile};
 use serde_yaml;
 use std::path::PathBuf;
 
@@ -161,7 +161,6 @@ fn is_empty_directory(dir: &PathBuf) -> Result<bool> {
 mod test_is_empty_directory {
     use super::is_empty_directory;
     use std::fs;
-    use std::path::PathBuf;
     use tempfile::tempdir;
 
     #[test]

@@ -1,4 +1,5 @@
 use crate::app::constants::YAML_EXTENSIONS;
+use crate::app::get_local_issues_without_matches::get_local_issues_without_matches;
 use crate::app::get_test_cases::get_test_cases;
 use crate::app::load_config::load_config;
 use crate::app::{
@@ -8,12 +9,11 @@ use crate::app::{
     },
     test_cases_builder::{get_test_cases_builders_from_file, validate_test_cases_builder_file},
 };
-use crate::github::{get_local_issues_without_matches, Github};
 use crate::test_cases::test_case_to_markdown;
-use common::types::{RequirementsFile, TestCasesBuilderFile};
 use crate::utils::get_files;
+use common::github::Github;
+use common::types::{RequirementsFile, TestCasesBuilderFile};
 
-use core::num;
 use std::path::PathBuf;
 
 use anyhow::{Context, Ok, Result};

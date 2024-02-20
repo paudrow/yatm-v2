@@ -6,6 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.79"
+async-recursion = "1.0.5"
+dotenv = "0.15.0"
 itertools = "0.12.1"
+octocrab = "0.33.4"
+percent-encoding = "2.3.1"
 serde = { version = "1.0.196", features = ["derive"] }
 serde_yaml = "0.9.31"
+tokio = { version = "1.36.0", features = ["full"] }

@@ -1,16 +1,10 @@
 use crate::app::constants::YAML_EXTENSIONS;
-use common::types::TestCasesBuilderFile;
 use crate::utils::get_files;
 use anyhow::{Context, Result};
 use common::types::TestCasesBuilder;
+use common::types::TestCasesBuilderFile;
 use serde_yaml;
 use std::path::PathBuf;
-
-/// Validate the test cases builder files.
-pub fn validate_test_cases_builder_files(test_cases_builder_dirs: &Vec<PathBuf>) -> Result<()> {
-    get_test_cases_builders_from_files(test_cases_builder_dirs)?;
-    Ok(())
-}
 
 /// Validate the test cases builder file.
 pub fn validate_test_cases_builder_file(test_cases_builder_path: &PathBuf) -> Result<()> {
