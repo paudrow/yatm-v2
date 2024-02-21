@@ -75,6 +75,7 @@ pub enum Action {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Expect {
+    StdIn(Terminal),
     StdOut(Terminal),
     StdErr(Terminal),
     Image(String),
