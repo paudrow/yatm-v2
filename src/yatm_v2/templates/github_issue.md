@@ -18,49 +18,63 @@
 
 ## Process
 {% for step in steps %}
+    {% if steps.len() > 1 %}
 ### Step {{ loop.index }}
+    {% endif %}
 
+    {% if step.action.len() > 0 %}
+        {% if step.action.len() == 1 %}
+#### Action
+        {% else %}
 #### Actions
-    {% for action in step.action -%}
-        {%- match action -%}
-            {% when Action::StdIn with (terminal) %}
+        {% endif %}
+        {% for action in step.action -%}
+            {%- match action -%}
+                {% when Action::StdIn with (terminal) %}
 ```bash
 # StdIn - terminal {{ terminal.number }}
 {{ terminal.text }}
 ```
-            {% when Action::Image with (image_path) %}
+                {% when Action::Image with (image_path) %}
 ![Image]({{ image_path }})
-            {% when Action::Describe with (description) %}
+                {% when Action::Describe with (description) %}
 {{ description }}
-            {% when Action::Url with (link) %}
+                {% when Action::Url with (link) %}
 [{{ link.name }}]({{ link.url }})
-        {%- endmatch -%}
-    {%- endfor %}
+            {%- endmatch -%}
+        {%- endfor %}
+    {% endif %}
 
+    {% if step.expect.len() > 0 %}
+        {% if step.expect.len() == 1 %}
 #### Expected Result
-    {% for expect in step.expect -%}
-        {%- match expect -%}
-            {% when Expect::StdIn with (terminal) %}
+        {% else %}
+#### Expected Results
+        {% endif %}
+        {% for expect in step.expect -%}
+            {%- match expect -%}
+                {% when Expect::StdIn with (terminal) %}
 ```bash
 # StdIn - terminal {{ terminal.number }}
 {{ terminal.text }}
 ```
-            {% when Expect::StdOut with (terminal) %}
+                {% when Expect::StdOut with (terminal) %}
 ```bash
 # StdOut - terminal {{ terminal.number }}
 {{ terminal.text }}
 ```
-            {% when Expect::StdErr with (terminal) %}
+                {% when Expect::StdErr with (terminal) %}
 ```bash
 # StdErr - terminal {{ terminal.number }}
 {{ terminal.text }}
 ```
-            {% when Expect::Image with (image_path) %}
+                {% when Expect::Image with (image_path) %}
 ![Image]({{ image_path }})
-            {% when Expect::Describe with (description) %}
+                {% when Expect::Describe with (description) %}
 {{ description }}
-            {% when Expect::Url with (link) %}
+                {% when Expect::Url with (link) %}
 [{{ link.name }}]({{ link.url }})
-        {%- endmatch -%}
-    {%- endfor -%}
+            {%- endmatch -%}
+        {%- endfor -%}
+    {% endif %}
 {%- endfor %}

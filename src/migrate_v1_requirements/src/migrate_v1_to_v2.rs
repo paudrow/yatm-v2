@@ -14,6 +14,27 @@ pub fn convert_requirements_file_v1_to_v2(
     Ok(RequirementsFileV2 { requirements })
 }
 
+#[cfg(test)]
+mod tests {
+    use super::convert_requirements_file_v1_to_v2;
+    use crate::requirements_file_v1::RequirementsFileV1;
+    use std::path::Path;
+
+    #[test]
+    fn test_convert_v1_to_v2() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/test_data");
+        for entry in std::fs::read_dir(&dir).expect("Reads the directory") {
+            let entry = entry.expect("Reads the entry");
+            let path = entry.path();
+            let contents = std::fs::read_to_string(path).unwrap();
+            let requirements: RequirementsFileV1 =
+                serde_yaml::from_str(&contents).expect("Parses the YAML");
+            convert_requirements_file_v1_to_v2(&requirements).expect("Converts to v2");
+        }
+    }
+}
+
+// TODO: Fix this so that it takes in all of the different cases.
 fn convert_v1_to_v2(req_v1: &RequirementV1) -> Result<RequirementV2> {
     let steps = req_v1
         .checks
@@ -70,24 +91,4 @@ fn convert_v1_to_v2(req_v1: &RequirementV1) -> Result<RequirementV2> {
         labels: req_v1.labels.clone(),
         links: req_v1.links.clone(),
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::convert_requirements_file_v1_to_v2;
-    use crate::requirements_file_v1::RequirementsFileV1;
-    use std::path::Path;
-
-    #[test]
-    fn test_convert_v1_to_v2() {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/test_data");
-        for entry in std::fs::read_dir(&dir).expect("Reads the directory") {
-            let entry = entry.expect("Reads the entry");
-            let path = entry.path();
-            let contents = std::fs::read_to_string(path).unwrap();
-            let requirements: RequirementsFileV1 =
-                serde_yaml::from_str(&contents).expect("Parses the YAML");
-            convert_requirements_file_v1_to_v2(&requirements).expect("Converts to v2");
-        }
-    }
 }

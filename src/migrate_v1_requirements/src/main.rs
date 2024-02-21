@@ -43,9 +43,22 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let contents = std::fs::read_to_string(&cli.input)
         .context(format!("Could not read file: {:?}", &cli.input))?;
-    let output_path = cli
-        .output
-        .unwrap_or_else(|| append_v2_to_filename(cli.input.clone()));
+
+    // Determine the output path
+    // If the output flag is set and is a directory, copy the input file name in the new directory
+    let output_path = match cli.output {
+        Some(path) => {
+            if path.is_dir() {
+                path.join(cli.input.clone().file_name().context(format!(
+                    "Could not get input name: {}",
+                    cli.input.to_string_lossy()
+                ))?)
+            } else {
+                path
+            }
+        }
+        None => append_v2_to_filename(cli.input.clone()),
+    };
 
     if output_path.exists() && !cli.force {
         anyhow::bail!("Output file already exists: {:?}", &output_path);
@@ -101,7 +114,7 @@ mod tests {
         let temp_dir = tempdir().expect("Creates a temporary directory");
         let temp_v1_file_path = temp_dir.path().join("requirements.yaml");
         let temp_v2_file_path = temp_dir.path().join("requirements_v2.yaml");
-        let temp_v2_file_path_2 = temp_dir.path().join("my_file_v2.yaml");
+        let temp_v2_file_path_custom_output = temp_dir.path().join("my_file_v2.yaml");
         std::fs::copy(&v1_file_path, &temp_v1_file_path).expect("Copies a file");
 
         // run the command without the output flag
@@ -125,15 +138,15 @@ mod tests {
             .success();
 
         // running the command with the output flag
-        assert!(!temp_v2_file_path_2.exists());
+        assert!(!temp_v2_file_path_custom_output.exists());
         let mut cmd = get_command();
         cmd.args(&[
             &temp_v1_file_path.to_str().unwrap(),
             "--output",
-            &temp_v2_file_path_2.to_str().unwrap(),
+            &temp_v2_file_path_custom_output.to_str().unwrap(),
         ])
         .assert()
         .success();
-        assert!(temp_v2_file_path_2.exists());
+        assert!(temp_v2_file_path_custom_output.exists());
     }
 }
