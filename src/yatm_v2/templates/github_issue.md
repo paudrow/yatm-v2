@@ -18,9 +18,22 @@
 
 ## Process
 {% for step in steps %}
-    {% if steps.len() > 1 %}
+    {% match step.name %}
+        {% when Some with (name) %}
+            {% if steps.len() > 1 %}
+### Step {{ loop.index }} - {{name}}
+            {% else %}
+### {{name}}
+            {% endif %}
+        {% when None %}
 ### Step {{ loop.index }}
-    {% endif %}
+    {% endmatch %}
+
+    {% match step.description %}
+        {% when Some with (description) %}
+{{description}}
+        {% when None %}
+    {% endmatch %}
 
     {% if step.action.len() > 0 %}
         {% if step.action.len() == 1 %}
