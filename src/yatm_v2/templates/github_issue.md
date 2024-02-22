@@ -53,11 +53,6 @@
         {% endif %}
         {% for expect in step.expect -%}
             {%- match expect -%}
-                {% when Expect::StdIn with (terminal) %}
-```bash
-# StdIn - terminal {{ terminal.number }}
-{{ terminal.text }}
-```
                 {% when Expect::StdOut with (terminal) %}
 ```bash
 # StdOut - terminal {{ terminal.number }}

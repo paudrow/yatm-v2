@@ -25,29 +25,24 @@ pub struct CheckV1 {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub r#try: Option<Vec<TryV1>>,
+    pub r#try: Option<Vec<StepV1>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expect: Option<Vec<ExpectV1>>,
+    pub expect: Option<Vec<StepV1>>,
 }
 
+#[allow(non_snake_case)]
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TryV1 {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub stdin: Option<String>,
+pub struct StepV1 {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub terminal: Option<u8>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ExpectV1 {
+    pub imageUrl: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stdin: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stdout: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub stdin: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub note: Option<String>,
+    pub stderr: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub terminal: Option<u8>,
 }

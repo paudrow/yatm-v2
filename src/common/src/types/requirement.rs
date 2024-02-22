@@ -15,6 +15,8 @@ impl Requirement {
             name: "name".to_string(),
             description: "description".to_string(),
             steps: vec![Step {
+                name: Some("step name".to_string()),
+                description: Some("step description".to_string()),
                 action: vec![
                     Action::Describe("action".to_string()),
                     Action::StdIn(Terminal {
@@ -61,6 +63,8 @@ pub struct Link {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Step {
+    pub name: Option<String>,
+    pub description: Option<String>,
     pub action: Vec<Action>,
     pub expect: Vec<Expect>,
 }
@@ -75,7 +79,6 @@ pub enum Action {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Expect {
-    StdIn(Terminal),
     StdOut(Terminal),
     StdErr(Terminal),
     Image(String),
