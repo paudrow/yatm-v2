@@ -39,10 +39,17 @@ fn get_labels(test_case: &TestCase, project_version: &String) -> Vec<String> {
     if let Some(labels_) = test_case.requirement.labels.clone() {
         labels.extend(labels_);
     }
-    for (key, value) in test_case.selected_permutation.iter() {
+    labels.extend(permutation_to_labels(&test_case.selected_permutation));
+    labels.push(project_version_to_label(project_version));
+    labels
+}
+
+pub fn permutation_to_labels(permutations: &HashMap<String, String>) -> Vec<String> {
+    let mut labels: Vec<String> = vec![];
+    for (key, value) in permutations.iter() {
         labels.push(format!("{}: {}", key, value));
     }
-    labels.push(project_version_to_label(project_version));
+    labels.sort();
     labels
 }
 

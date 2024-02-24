@@ -3,13 +3,15 @@ use crate::app::load_config::load_config;
 use crate::constants::YAML_EXTENSIONS;
 use crate::helpers::{
     get_files, get_local_issues_without_matches, get_requirements_from_file, get_test_cases,
-    get_test_cases_builders_from_file, project_version_to_label, test_case_to_markdown,
-    validate_requirements_file, validate_requirements_files, validate_test_cases_builder_file,
+    get_test_cases_builders_from_file, permutation_to_labels, project_version_to_label,
+    test_case_to_markdown, validate_requirements_file, validate_requirements_files,
+    validate_test_cases_builder_file,
 };
 use common::github::Github;
 use common::markdown_toc::{prepend_markdown_table_of_contents, TocOptions};
-use common::types::{RequirementsFile, TestCasesBuilderFile};
+use common::types::{Link, RequirementsFile, TestCasesBuilderFile};
 
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 use anyhow::{Context, Ok, Result};
@@ -34,6 +36,11 @@ enum Commands {
         #[clap(short, long)]
         path: PathBuf,
     },
+    /// Manage the test cases on Github
+    Github {
+        #[clap(subcommand)]
+        subcommand: GithubSubcommands,
+    },
     /// Manage the requirements
     Requirements {
         #[clap(subcommand)]
@@ -44,16 +51,17 @@ enum Commands {
         #[clap(subcommand)]
         subcommand: TestCasesSubcommands,
     },
-    /// Manage the test cases on Github
-    Github {
-        #[clap(subcommand)]
-        subcommand: GithubSubcommands,
-    },
 }
 
 // Define the subcommands for the FirstSubcommand
 #[derive(Subcommand)]
 enum RequirementsSubcommands {
+    /// List the requirements
+    List {
+        /// The path to the project
+        #[clap(short, long, default_value = ".")]
+        config_path: PathBuf,
+    },
     New {
         /// The path to the project
         #[clap(short, long, default_value = ".")]
@@ -74,13 +82,6 @@ enum RequirementsSubcommands {
         #[clap(short, long)]
         file_path: PathBuf,
     },
-
-    /// List the requirements
-    List {
-        /// The path to the project
-        #[clap(short, long, default_value = ".")]
-        config_path: PathBuf,
-    },
 }
 
 // Options specific to Subcommand1
@@ -92,6 +93,12 @@ struct Subcommand1Options {
 
 #[derive(Subcommand)]
 enum TestCasesSubcommands {
+    /// List the test cases builder files
+    List {
+        /// The path to the project
+        #[clap(short, long, default_value = ".")]
+        config_path: PathBuf,
+    },
     /// Create a new test case builder
     New {
         /// The path to the project
@@ -99,6 +106,12 @@ enum TestCasesSubcommands {
         config_path: PathBuf,
         #[clap(short, long)]
         file_name: Option<String>,
+    },
+    /// Preview the test cases in yaml.
+    Preview {
+        /// The path to the project
+        #[clap(short, long, default_value = ".")]
+        config_path: PathBuf,
     },
     /// Check the test cases builder files
     Validate {
@@ -113,28 +126,24 @@ enum TestCasesSubcommands {
         #[clap(short, long)]
         file_path: PathBuf,
     },
-
-    /// List the test cases builder files
-    List {
-        /// The path to the project
-        #[clap(short, long, default_value = ".")]
-        config_path: PathBuf,
-    },
-    /// Preview the test cases in yaml.
-    Preview {
-        /// The path to the project
-        #[clap(short, long, default_value = ".")]
-        config_path: PathBuf,
-    },
 }
 
 #[derive(Subcommand)]
 enum GithubSubcommands {
-    /// Check the test cases are converted to markdown correctly.
-    Validate {
+    /// Make links to the Github labels
+    MakeLabelLinks {
         /// The path to the project
         #[clap(short, long, default_value = ".")]
         config_path: PathBuf,
+    },
+    /// Get metrics for the project on Github
+    Metrics {
+        /// The path to the project
+        #[clap(short, long, default_value = ".")]
+        config_path: PathBuf,
+        /// The label to analyze
+        #[clap(short, long)]
+        label: Option<String>,
     },
     /// Preview the test cases in markdown
     Preview {
@@ -152,6 +161,12 @@ enum GithubSubcommands {
     Utils {
         #[clap(subcommand)]
         subcommand: GithubUtilsSubcommands,
+    },
+    /// Check the test cases are converted to markdown correctly.
+    Validate {
+        /// The path to the project
+        #[clap(short, long, default_value = ".")]
+        config_path: PathBuf,
     },
 }
 
@@ -190,21 +205,6 @@ enum GithubUtilsSubcommands {
         #[clap(short, long, default_value = ".")]
         config_path: PathBuf,
     },
-    /// Make a meta issue for the project
-    MakeMetaIssue {
-        /// The path to the project
-        #[clap(short, long, default_value = ".")]
-        config_path: PathBuf,
-    },
-    /// Get metrics for the project on Github
-    Metrics {
-        /// The path to the project
-        #[clap(short, long, default_value = ".")]
-        config_path: PathBuf,
-        /// The label to analyze
-        #[clap(short, long)]
-        label: Option<String>,
-    },
 }
 
 pub async fn cli() -> Result<()> {
@@ -224,7 +224,6 @@ pub async fn cli() -> Result<()> {
                 let file_name = match file_name {
                     Some(file_name) => file_name,
                     None => {
-                        // get datetime string in current timezone
                         let datetime_string =
                             chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
                         format!("requirements-{}.yaml", datetime_string)
@@ -291,7 +290,6 @@ pub async fn cli() -> Result<()> {
                 let file_name = match file_name {
                     Some(file_name) => file_name,
                     None => {
-                        // get datetime string in current timezone
                         let datetime_string =
                             chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
                         format!("test_cases_builder-{}.yaml", datetime_string)
@@ -493,6 +491,85 @@ pub async fn cli() -> Result<()> {
                 println!("{} issues created", unmatched_local_issues_count);
                 println!("Done 🚀");
             }
+            GithubSubcommands::MakeLabelLinks { config_path } => {
+                let config = load_config(&config_path)?;
+                let test_cases = get_test_cases(&config)?;
+                let mut permutations: HashSet<Vec<String>> = HashSet::new();
+                for test_case in &test_cases {
+                    permutations.insert(permutation_to_labels(&test_case.selected_permutation));
+                }
+                let mut links: Vec<Link> = vec![];
+                for permutation in permutations {
+                    let mut url = format!(
+                        "https://github.com/{}/{}/issues?q=is:issue+is:open",
+                        config.repo_owner, config.repo_name
+                    );
+                    for label in &permutation {
+                        url += &format!("+label:%22{}%22", label.replace(" ", "+"));
+                    }
+                    let text = &permutation
+                        .iter()
+                        .map(|l| format!("`{}`", l))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    links.push(Link {
+                        url,
+                        name: text.to_string(),
+                    });
+                }
+
+                let mut file_contents = String::new();
+                file_contents.push_str("# Links to the Github labels\n\n");
+                for link in links {
+                    file_contents.push_str(&format!("- [{}]({})\n", link.name, link.url));
+                }
+
+                // Write the test cases to a file
+                let datetime_string = chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
+                let output_file_name = format!("label-links-{}.md", datetime_string);
+                let output_path = config.generated_files_dir.join(output_file_name);
+                std::fs::write(&output_path, file_contents).context(format!(
+                    "Failed to write the label links file: {:?}",
+                    output_path
+                ))?;
+            }
+            GithubSubcommands::Metrics { config_path, label } => {
+                let config = load_config(&config_path)?;
+                let project_version = project_version_to_label(&config.project_version);
+
+                let gh = Github::new(&config.repo_owner, &config.repo_name)?;
+
+                let issues = gh.get_issues(Some(State::All)).await?;
+                let issues = issues
+                    .iter()
+                    .filter(|i| {
+                        let is_version = i
+                            .labels
+                            .iter()
+                            .any(|gh_label| gh_label.name == project_version);
+                        let is_label_of_interest = match &label {
+                            Some(label) => i.labels.iter().any(|l| l.name == *label),
+                            None => true,
+                        };
+                        is_version && is_label_of_interest
+                    })
+                    .collect::<Vec<_>>();
+                if issues.is_empty() {
+                    println!("No issues found");
+                } else {
+                    let closed_issues = issues
+                        .iter()
+                        .filter(|i| i.state == IssueState::Closed)
+                        .collect::<Vec<_>>();
+
+                    println!(
+                        "{}/{} issues closed: {:.2}%",
+                        closed_issues.len(),
+                        issues.len(),
+                        (closed_issues.len() as f64 / issues.len() as f64) * 100.0
+                    );
+                }
+            }
             GithubSubcommands::Utils { subcommand } => {
                 match subcommand {
                     GithubUtilsSubcommands::CloseIssues {
@@ -563,48 +640,6 @@ pub async fn cli() -> Result<()> {
 
                         gh.create_labels(config.labels).await?;
                         println!("Done 🚀");
-                    }
-                    GithubUtilsSubcommands::MakeMetaIssue { config_path } => {
-                        let config = load_config(&config_path)?;
-                        let _gh = Github::new(&config.repo_owner, &config.repo_name)?;
-                        unimplemented!("MakeMetaIssue")
-                    }
-                    GithubUtilsSubcommands::Metrics { config_path, label } => {
-                        let config = load_config(&config_path)?;
-                        let project_version = project_version_to_label(&config.project_version);
-
-                        let gh = Github::new(&config.repo_owner, &config.repo_name)?;
-
-                        let issues = gh.get_issues(Some(State::All)).await?;
-                        let issues = issues
-                            .iter()
-                            .filter(|i| {
-                                let is_version = i
-                                    .labels
-                                    .iter()
-                                    .any(|gh_label| gh_label.name == project_version);
-                                let is_label_of_interest = match &label {
-                                    Some(label) => i.labels.iter().any(|l| l.name == *label),
-                                    None => true,
-                                };
-                                is_version && is_label_of_interest
-                            })
-                            .collect::<Vec<_>>();
-                        if issues.is_empty() {
-                            println!("No issues found");
-                        } else {
-                            let closed_issues = issues
-                                .iter()
-                                .filter(|i| i.state == IssueState::Closed)
-                                .collect::<Vec<_>>();
-
-                            println!(
-                                "{}/{} issues closed: {:.2}%",
-                                closed_issues.len(),
-                                issues.len(),
-                                (closed_issues.len() as f64 / issues.len() as f64) * 100.0
-                            );
-                        }
                     }
                 }
             }
@@ -859,5 +894,18 @@ mod test_cli {
             .assert()
             .success();
         assert_eq!(get_number_of_files_in_dir(&config.generated_files_dir), 1);
+
+        // run the make label links command
+        assert_eq!(get_number_of_files_in_dir(&config.generated_files_dir), 1);
+        let mut cmd = get_command();
+        cmd.args(&[
+            "github",
+            "make-label-links",
+            "--config-path",
+            dir.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+        assert_eq!(get_number_of_files_in_dir(&config.generated_files_dir), 2);
     }
 }
