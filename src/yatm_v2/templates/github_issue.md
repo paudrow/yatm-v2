@@ -36,10 +36,12 @@
     {% endmatch %}
 
     {% if step.action.len() > 0 %}
-        {% if step.action.len() == 1 %}
+        {% if step.expect.len() > 0 %}
+            {% if step.action.len() == 1 %}
 #### Action
-        {% else %}
+            {% else %}
 #### Actions
+            {% endif %}
         {% endif %}
         {% for action in step.action -%}
             {%- match action -%}

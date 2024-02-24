@@ -24,7 +24,7 @@ pub fn slugify(text: &str) -> String {
     text.to_lowercase()
         .replace(" ", "-")
         .chars()
-        .filter(|c| c.is_alphanumeric() || *c == '-')
+        .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
         .collect::<String>()
 }
 
@@ -114,14 +114,14 @@ mod test_make_markdown_table_of_contents {
     #[test]
     fn test_handles_special_characters() {
         let content = r#"
-# Title with special characters: `&`
+# Title_with special characters: `&`
         "#
         .to_string();
         let result = make_markdown_table_of_contents(&content, None).unwrap();
 
         assert_eq!(
             result,
-            "- [Title with special characters: `&`](#title-with-special-characters-)\n".to_string()
+            "- [Title_with special characters: `&`](#title_with-special-characters-)\n".to_string()
         );
     }
 
