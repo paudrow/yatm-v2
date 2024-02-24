@@ -1,8 +1,11 @@
+use crate::types::GithubLabel;
+use anyhow::Ok;
 use anyhow::{anyhow, Context, Result};
 use async_recursion::async_recursion;
 use dotenv::dotenv;
 use octocrab::models::issues::Issue;
 use octocrab::models::IssueState;
+use octocrab::models::Label;
 use octocrab::params::State;
 use octocrab::Octocrab;
 use tokio::time::{sleep, Duration};
@@ -29,17 +32,37 @@ impl Github {
         })
     }
 
-    pub async fn delete_labels(&self) -> Result<()> {
-        let labels = self
+    pub async fn get_labels(&self) -> Result<Vec<Label>> {
+        let mut page: u32 = 1;
+        let mut labels: Vec<Label> = Vec::new();
+        loop {
+            let page_labels = self.get_labels_helper(page).await?;
+            if page_labels.is_empty() {
+                break;
+            }
+            labels.extend(page_labels);
+            page += 1;
+        }
+        Ok(labels)
+    }
+    async fn get_labels_helper(&self, page: u32) -> Result<Vec<Label>> {
+        let page = self
             .octocrab
             .issues(&self.owner, &self.repo)
             .list_labels_for_repo()
+            .per_page(100)
+            .page(page)
             .send()
             .await
             .context(format!(
                 "Failed to list labels for {}/{}",
                 self.owner, self.repo
             ))?;
+        Ok(page.items)
+    }
+
+    pub async fn delete_labels(&self) -> Result<()> {
+        let labels = self.get_labels().await?;
 
         for label in labels {
             let label_name = percent_encoding::utf8_percent_encode(
@@ -60,16 +83,27 @@ impl Github {
         Ok(())
     }
 
-    pub async fn create_labels(&self, labels: Vec<String>) -> Result<()> {
-        for label in labels {
+    pub async fn create_labels(&self, labels: Vec<GithubLabel>) -> Result<()> {
+        let existing_labels = self.get_labels().await?;
+
+        for label in &labels {
+            if existing_labels.iter().any(|l| l.name == label.name) {
+                println!("Skipping '{}' because it already exists", label.name);
+                continue;
+            }
             self.octocrab
                 .issues(&self.owner, &self.repo)
-                .create_label(&label, "000000", "")
+                .create_label(
+                    &label.name,
+                    &label.color,
+                    label.description.clone().unwrap_or_default(),
+                )
                 .await
                 .context(format!(
                     "Failed to create label '{}' in {}/{}",
-                    &label, self.owner, self.repo
+                    &label.name, self.owner, self.repo
                 ))?;
+            println!("Created label '{}'", label.name);
         }
         Ok(())
     }

@@ -13,8 +13,8 @@ struct GithubIssueTemplate {
     selected_permutation: HashMap<String, String>,
 }
 
-pub fn test_case_to_markdown(test_case: TestCase) -> Result<LocalIssue> {
-    let labels = get_labels(&test_case);
+pub fn test_case_to_markdown(test_case: TestCase, project_version: &String) -> Result<LocalIssue> {
+    let labels = get_labels(&test_case, project_version);
 
     let template = GithubIssueTemplate {
         description: test_case.requirement.description,
@@ -31,7 +31,7 @@ pub fn test_case_to_markdown(test_case: TestCase) -> Result<LocalIssue> {
     })
 }
 
-fn get_labels(test_case: &TestCase) -> Vec<String> {
+fn get_labels(test_case: &TestCase, project_version: &String) -> Vec<String> {
     let mut labels: Vec<String> = vec![];
     if let Some(labels_) = test_case.builder_used.labels.clone() {
         labels.extend(labels_);
@@ -42,6 +42,10 @@ fn get_labels(test_case: &TestCase) -> Vec<String> {
     for (key, value) in test_case.selected_permutation.iter() {
         labels.push(format!("{}: {}", key, value));
     }
-    labels.push(format!("version: {}", test_case.builder_used.version));
+    labels.push(project_version_to_label(project_version));
     labels
+}
+
+pub fn project_version_to_label(project_version: &String) -> String {
+    format!("version: {}", project_version)
 }

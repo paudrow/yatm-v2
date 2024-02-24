@@ -1,6 +1,5 @@
 [package]
 name = "yatm_v2"
-author = "Audrow Nash"
 version = "0.1.0"
 edition = "2021"
 

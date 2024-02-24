@@ -13,8 +13,6 @@ pub struct TestCasesBuilder {
     pub labels: Option<Vec<String>>,
     /// The permutations to apply to the test cases.
     pub permutations: HashMap<String, Vec<String>>,
-    /// The pub version of the test cases.
-    pub version: u8,
 }
 
 impl TestCasesBuilder {
@@ -39,7 +37,6 @@ impl TestCasesBuilder {
             })],
             labels: Some(vec!["Demo".to_string()]),
             permutations,
-            version: 1,
         }
     }
 }

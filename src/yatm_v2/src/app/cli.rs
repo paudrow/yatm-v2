@@ -3,16 +3,19 @@ use crate::app::load_config::load_config;
 use crate::constants::YAML_EXTENSIONS;
 use crate::helpers::{
     get_files, get_local_issues_without_matches, get_requirements_from_file, get_test_cases,
-    get_test_cases_builders_from_file, test_case_to_markdown, validate_requirements_file,
-    validate_requirements_files, validate_test_cases_builder_file,
+    get_test_cases_builders_from_file, project_version_to_label, test_case_to_markdown,
+    validate_requirements_file, validate_requirements_files, validate_test_cases_builder_file,
 };
 use common::github::Github;
+use common::markdown_toc::{prepend_markdown_table_of_contents, TocOptions};
 use common::types::{RequirementsFile, TestCasesBuilderFile};
 
 use std::path::PathBuf;
 
 use anyhow::{Context, Ok, Result};
 use clap::{Parser, Subcommand};
+use octocrab::models::IssueState;
+use octocrab::params::State;
 
 // Define the main application
 #[derive(Parser)]
@@ -144,6 +147,63 @@ enum GithubSubcommands {
         /// The path to the project
         #[clap(short, long, default_value = ".")]
         config_path: PathBuf,
+    },
+    /// Utilities for Github
+    Utils {
+        #[clap(subcommand)]
+        subcommand: GithubUtilsSubcommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum GithubUtilsSubcommands {
+    /// Close issues that have a matching label
+    CloseIssues {
+        /// The path to the project
+        #[clap(short, long, default_value = ".")]
+        config_path: PathBuf,
+        /// The label to close
+        #[clap(short, long)]
+        label: String,
+        /// Don't ask for confirmation
+        #[clap(short, long, action = clap::ArgAction::SetTrue)]
+        yes: bool,
+    },
+    /// Create labels from the config
+    CreateLabels {
+        /// The path to the project
+        #[clap(short, long, default_value = ".")]
+        config_path: PathBuf,
+    },
+    /// Delete all existing labels
+    DeleteAllLabels {
+        /// The path to the project
+        #[clap(short, long, default_value = ".")]
+        config_path: PathBuf,
+        /// Don't ask for confirmation
+        #[clap(short, long, action = clap::ArgAction::SetTrue)]
+        yes: bool,
+    },
+    /// List the labels in the repo
+    ListLabels {
+        /// The path to the project
+        #[clap(short, long, default_value = ".")]
+        config_path: PathBuf,
+    },
+    /// Make a meta issue for the project
+    MakeMetaIssue {
+        /// The path to the project
+        #[clap(short, long, default_value = ".")]
+        config_path: PathBuf,
+    },
+    /// Get metrics for the project on Github
+    Metrics {
+        /// The path to the project
+        #[clap(short, long, default_value = ".")]
+        config_path: PathBuf,
+        /// The label to analyze
+        #[clap(short, long)]
+        label: Option<String>,
     },
 }
 
@@ -325,10 +385,9 @@ pub async fn cli() -> Result<()> {
 
                 // Convert the test cases to markdown
                 for test_case in &test_cases {
-                    test_case_to_markdown(test_case.clone()).context(format!(
-                        "Failed to convert test case to markdown: {:?}",
-                        &test_case
-                    ))?;
+                    test_case_to_markdown(test_case.clone(), &config.project_version).context(
+                        format!("Failed to convert test case to markdown: {:?}", &test_case),
+                    )?;
                 }
                 let number_of_test_cases = test_cases.len();
                 println!("{} test cases would be made", number_of_test_cases);
@@ -346,15 +405,45 @@ pub async fn cli() -> Result<()> {
                 // Convert the test cases to markdown
                 let mut file_contents = String::new();
                 for test_case in test_cases {
-                    let issue = test_case_to_markdown(test_case)?;
+                    let issue = test_case_to_markdown(test_case.clone(), &config.project_version)?;
+
+                    // Get the title with the selected permutation
+                    let mut permutation =
+                        test_case.selected_permutation.values().collect::<Vec<_>>();
+                    permutation.sort();
+                    let permutation = permutation
+                        .iter()
+                        .map(|v| format!("`{}`", v))
+                        .collect::<Vec<_>>();
+                    let title = format!("{} - {}", issue.title, permutation.join(", "),);
+
+                    // Get the labels
+                    let mut labels = issue
+                        .labels
+                        .iter()
+                        .map(|l| format!("`{}`", l))
+                        .collect::<Vec<_>>();
+                    labels.sort();
+
                     let issue = format!(
-                        "# {title}\n\n{labels}\n\n{text_body}\n\n---\n\n",
-                        title = issue.title,
-                        labels = issue.labels.join(", "),
+                        "# {title}\n\nLabels: {labels}\n\n{text_body}\n\n---\n\n",
+                        title = title,
+                        labels = labels.join(", "),
                         text_body = issue.text_body,
                     );
+
                     file_contents.push_str(&issue);
                 }
+
+                let toc_options = TocOptions {
+                    min_depth: Some(1),
+                    max_depth: Some(1),
+                    spaces_per_indent: Some(2),
+                    toc_title: Some("Table of Contents".to_string()),
+                    toc_title_level: Some(1),
+                };
+                file_contents =
+                    prepend_markdown_table_of_contents(&file_contents, Some(&toc_options));
 
                 // Write the test cases to a file
                 let datetime_string = chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
@@ -379,10 +468,9 @@ pub async fn cli() -> Result<()> {
                 let local_issues = test_cases
                     .iter()
                     .map(|test_case| {
-                        test_case_to_markdown(test_case.clone()).context(format!(
-                            "Failed to convert test case to markdown: {:?}",
-                            test_case
-                        ))
+                        test_case_to_markdown(test_case.clone(), &config.project_version).context(
+                            format!("Failed to convert test case to markdown: {:?}", test_case),
+                        )
                     })
                     .collect::<Result<Vec<_>>>()?;
                 let local_issues_count = local_issues.len();
@@ -390,7 +478,7 @@ pub async fn cli() -> Result<()> {
 
                 // Get the issues from Github
                 let gh = Github::new(&config.repo_owner, &config.repo_name)?;
-                let github_issues = gh.get_issues(Some(octocrab::params::State::Open)).await?;
+                let github_issues = gh.get_issues(Some(State::Open)).await?;
 
                 // Create issues that don't exist on Github
                 let unmatched_local_issues =
@@ -404,6 +492,121 @@ pub async fn cli() -> Result<()> {
                 }
                 println!("{} issues created", unmatched_local_issues_count);
                 println!("Done 🚀");
+            }
+            GithubSubcommands::Utils { subcommand } => {
+                match subcommand {
+                    GithubUtilsSubcommands::CloseIssues {
+                        config_path,
+                        label,
+                        yes: is_confirmed,
+                    } => {
+                        let config = load_config(&config_path)?;
+                        let gh = Github::new(&config.repo_owner, &config.repo_name)?;
+
+                        if !is_confirmed {
+                            let mut input = String::new();
+                            println!("Are you sure you want to delete all of the existing labels? (yes/no)");
+                            std::io::stdin()
+                                .read_line(&mut input)
+                                .context("Failed to read the user input")?;
+                            if input.trim() != "yes" {
+                                anyhow::bail!("The user did not confirm");
+                            }
+                        }
+
+                        let issues = gh.get_issues(Some(octocrab::params::State::Open)).await?;
+                        for issue in issues {
+                            if issue.labels.iter().any(|gh_label| gh_label.name == label) {
+                                println!("Closing issue: {}", &issue.title);
+                                gh.close_issue(&issue).await?;
+                            }
+                        }
+                    }
+                    GithubUtilsSubcommands::ListLabels { config_path } => {
+                        let config = load_config(&config_path)?;
+                        let gh = Github::new(&config.repo_owner, &config.repo_name)?;
+
+                        let labels = gh.get_labels().await?;
+                        println!("Labels:");
+                        for label in labels {
+                            if let Some(description) = label.description {
+                                println!("- {}: {}", label.name, description);
+                            } else {
+                                println!("- {}", label.name);
+                            }
+                        }
+                    }
+                    GithubUtilsSubcommands::DeleteAllLabels {
+                        config_path,
+                        yes: is_confirmed,
+                    } => {
+                        let config = load_config(&config_path)?;
+                        let gh = Github::new(&config.repo_owner, &config.repo_name)?;
+
+                        if !is_confirmed {
+                            let mut input = String::new();
+                            println!("Are you sure you want to delete all of the existing labels? (yes/no)");
+                            std::io::stdin()
+                                .read_line(&mut input)
+                                .context("Failed to read the user input")?;
+                            if input.trim() != "yes" {
+                                anyhow::bail!("The user did not confirm");
+                            }
+                        }
+
+                        gh.delete_labels().await?;
+                        println!("Done 🚀");
+                    }
+                    GithubUtilsSubcommands::CreateLabels { config_path } => {
+                        let config = load_config(&config_path)?;
+                        let gh = Github::new(&config.repo_owner, &config.repo_name)?;
+
+                        gh.create_labels(config.labels).await?;
+                        println!("Done 🚀");
+                    }
+                    GithubUtilsSubcommands::MakeMetaIssue { config_path } => {
+                        let config = load_config(&config_path)?;
+                        let _gh = Github::new(&config.repo_owner, &config.repo_name)?;
+                        unimplemented!("MakeMetaIssue")
+                    }
+                    GithubUtilsSubcommands::Metrics { config_path, label } => {
+                        let config = load_config(&config_path)?;
+                        let project_version = project_version_to_label(&config.project_version);
+
+                        let gh = Github::new(&config.repo_owner, &config.repo_name)?;
+
+                        let issues = gh.get_issues(Some(State::All)).await?;
+                        let issues = issues
+                            .iter()
+                            .filter(|i| {
+                                let is_version = i
+                                    .labels
+                                    .iter()
+                                    .any(|gh_label| gh_label.name == project_version);
+                                let is_label_of_interest = match &label {
+                                    Some(label) => i.labels.iter().any(|l| l.name == *label),
+                                    None => true,
+                                };
+                                is_version && is_label_of_interest
+                            })
+                            .collect::<Vec<_>>();
+                        if issues.is_empty() {
+                            println!("No issues found");
+                        } else {
+                            let closed_issues = issues
+                                .iter()
+                                .filter(|i| i.state == IssueState::Closed)
+                                .collect::<Vec<_>>();
+
+                            println!(
+                                "{}/{} issues closed: {:.2}%",
+                                closed_issues.len(),
+                                issues.len(),
+                                (closed_issues.len() as f64 / issues.len() as f64) * 100.0
+                            );
+                        }
+                    }
+                }
             }
         },
     }
