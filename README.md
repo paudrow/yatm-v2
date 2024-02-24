@@ -1,1 +1,45 @@
 # README
+
+YATM v2 is a tool for generating test cases from requirements for manual testing.
+It works well with putting issues on Github so that community contributors can help with testing.
+
+## Entry points
+
+This repository contains several entry points for different tools.
+You will find more information about each of them in their respective READMEs:
+
+- [YATM v2](./src/yatm_v2/README.md)
+- [Migration script for YATM v1 to v2](./src/migrate_v1_requirements/README.md)
+- [Make requirements from ROS 2 docs](./src/make_requirements_from_ros2_docs/README.md)
+
+## Setup
+
+Make sure that you have [Rust](https://www.rust-lang.org/tools/install) installed:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+Afterwards, you should be able to run each of the entry points.
+You can either run the from the root of this repository with the `--bin` flag or by navigating to the respective directory and running `cargo run`.
+For example:
+
+```bash
+# Run YATM v2 from the root of this repository
+cargo run --bin yatm_v2
+
+# Run YATM v2 from the yatm_v2 directory
+# cd src/yatm_v2
+cargo run
+```
+
+You can also install the entry points with `cargo install` and then you'll be able to access them from anywhere on your system.
+
+```bash
+# Install YATM v2 from the root of this repository
+cargo install --path src/yatm_v2
+
+# Install YATM v2 from the yatm_v2 directory
+# cd src/yatm_v2
+cargo install --path .
+```

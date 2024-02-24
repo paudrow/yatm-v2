@@ -1,3 +1,3 @@
 [workspace]
 resolver = "2"
-members = ["src/common", "src/migrate_v1_requirements", "src/yatm_v2"]
+members = ["src/common", "src/make_ros2_docs_rquirements", "src/migrate_v1_requirements", "src/yatm_v2"]

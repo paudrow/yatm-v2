@@ -50,7 +50,7 @@ pub fn init_workspace(dir: &PathBuf) -> Result<()> {
     let gitignore_file = dir.join(".gitignore");
     std::fs::write(
         &gitignore_file,
-        &format!("/{}", config.generated_files_dir.to_string_lossy()),
+        &format!("/{}\n.env\n", config.generated_files_dir.to_string_lossy()),
     )
     .context("Failed to write the .gitignore file")?;
 
