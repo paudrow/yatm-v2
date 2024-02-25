@@ -5,14 +5,11 @@ It works well with putting issues on Github so that community contributors can h
 
 ## Entry points
 
-This repository contains several entry points for different tools.
+This repository contains a couple entry points.
 You will find more information about each of them in their respective READMEs:
 
 - [YATM v2](./src/yatm_v2/README.md)
 - [Migration script for YATM v1 to v2](./src/migrate_v1_requirements/README.md)
-
-Not done yet:
-- [Make requirements from ROS 2 docs](./src/make_requirements_from_ros2_docs/README.md)
 
 ## Setup
 
