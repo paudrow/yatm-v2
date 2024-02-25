@@ -26,15 +26,26 @@ impl TestCasesBuilder {
                 "MacOS 12.0".to_string(),
             ],
         );
+        permutations.insert(
+            "RMW".to_string(),
+            vec!["CycloneDDS".to_string(), "FastRTPS".to_string()],
+        );
 
         TestCasesBuilder {
             name: "Demo test cases".to_string(),
             description: "description".to_string(),
-            set: vec![SetSteps::Include(Filter {
-                all_labels: None,
-                any_names: None,
-                negate: false,
-            })],
+            set: vec![
+                SetSteps::Include(Filter {
+                    all_labels: Some(vec!["label".to_string()]),
+                    any_names: Some(vec!["name".to_string()]),
+                    negate: false,
+                }),
+                SetSteps::Exclude(Filter {
+                    all_labels: None,
+                    any_names: Some(vec!["Demo".to_string()]),
+                    negate: false,
+                }),
+            ],
             labels: Some(vec!["Demo".to_string()]),
             permutations,
         }

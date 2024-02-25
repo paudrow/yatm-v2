@@ -10,6 +10,8 @@ You will find more information about each of them in their respective READMEs:
 
 - [YATM v2](./src/yatm_v2/README.md)
 - [Migration script for YATM v1 to v2](./src/migrate_v1_requirements/README.md)
+
+Not done yet:
 - [Make requirements from ROS 2 docs](./src/make_requirements_from_ros2_docs/README.md)
 
 ## Setup
@@ -43,3 +45,9 @@ cargo install --path src/yatm_v2
 # cd src/yatm_v2
 cargo install --path .
 ```
+
+## Creating your own tools that work with YATM v2
+
+If you want to add other tools that work with YATM v2, you can use the common types in `src/common`.
+
+You can also write your own scripts to generate requirements from other sources and use YATM v2 to verify them.

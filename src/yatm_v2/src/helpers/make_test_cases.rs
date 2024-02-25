@@ -611,7 +611,11 @@ fn filter_matches_requirement(filter: &Filter, requirement: &Requirement) -> boo
         Some(names) => {
             let mut any_name_matches = false;
             for name in names.iter() {
-                if requirement.name.contains(name) {
+                if requirement
+                    .name
+                    .to_lowercase()
+                    .contains(&name.to_lowercase())
+                {
                     any_name_matches = true;
                     break;
                 }
@@ -672,6 +676,23 @@ mod test_filter_matches_requirements {
         };
         let requirement = Requirement {
             name: "name1".to_string(),
+            description: "description".to_string(),
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            links: None,
+            steps: vec![],
+        };
+        assert_eq!(filter_matches_requirement(&filter, &requirement), true);
+    }
+
+    #[test]
+    fn name_partial_case_insensitive() {
+        let filter = Filter {
+            all_labels: None,
+            any_names: Some(vec!["Me1".to_string()]),
+            negate: false,
+        };
+        let requirement = Requirement {
+            name: "name1-1".to_string(),
             description: "description".to_string(),
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,

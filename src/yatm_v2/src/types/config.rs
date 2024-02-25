@@ -8,8 +8,8 @@ pub struct Config {
     pub repo_owner: String,
     /// The name of the repository.
     pub repo_name: String,
-    /// The version of the project.
-    pub project_version: String,
+    /// The version of the workspace.
+    pub workspace_version: String,
     /// The version of yatm_v2 to use.
     pub yatm_v2_version: String,
     /// The directories to search for requirements.
@@ -32,7 +32,7 @@ impl Config {
         let requirements_dir = "requirements";
         let test_cases_builder_dir = "test_cases_builders";
         Config {
-            project_version: "0.0.1".to_string(),
+            workspace_version: "0.0.1".to_string(),
             yatm_v2_version: version.to_string(),
             repo_name: "repo_name".to_string(),
             repo_owner: "repo_owner".to_string(),

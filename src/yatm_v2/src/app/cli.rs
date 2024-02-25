@@ -383,7 +383,7 @@ pub async fn cli() -> Result<()> {
 
                 // Convert the test cases to markdown
                 for test_case in &test_cases {
-                    test_case_to_markdown(test_case.clone(), &config.project_version).context(
+                    test_case_to_markdown(test_case.clone(), &config.workspace_version).context(
                         format!("Failed to convert test case to markdown: {:?}", &test_case),
                     )?;
                 }
@@ -403,7 +403,8 @@ pub async fn cli() -> Result<()> {
                 // Convert the test cases to markdown
                 let mut file_contents = String::new();
                 for test_case in test_cases {
-                    let issue = test_case_to_markdown(test_case.clone(), &config.project_version)?;
+                    let issue =
+                        test_case_to_markdown(test_case.clone(), &config.workspace_version)?;
 
                     // Get the title with the selected permutation
                     let mut permutation =
@@ -466,7 +467,7 @@ pub async fn cli() -> Result<()> {
                 let local_issues = test_cases
                     .iter()
                     .map(|test_case| {
-                        test_case_to_markdown(test_case.clone(), &config.project_version).context(
+                        test_case_to_markdown(test_case.clone(), &config.workspace_version).context(
                             format!("Failed to convert test case to markdown: {:?}", test_case),
                         )
                     })
@@ -535,7 +536,7 @@ pub async fn cli() -> Result<()> {
             }
             GithubSubcommands::Metrics { config_path, label } => {
                 let config = load_config(&config_path)?;
-                let project_version = project_version_to_label(&config.project_version);
+                let project_version = project_version_to_label(&config.workspace_version);
 
                 let gh = Github::new(&config.repo_owner, &config.repo_name)?;
 
