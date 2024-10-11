@@ -45,12 +45,20 @@ YATM v2 is a rewrite of the [original YATM tool](https://github.com/audrow/yatm)
 
 ### Getting started
 
-1. Clone this repository and check that the tests pass.
+1. Clone this repository and build the project:
 
     ```bash
     # from the root of this repository
+    cargo build
+    ```
+
+1. Check that the tests pass:
+
+    ```bash
     cargo test
     ```
+
+   > Note: You must run `cargo build` before running tests to ensure all dependencies are properly compiled.
 
 1. Install YATM v2 from the root of this repository
 
@@ -365,4 +373,3 @@ This will generate six test cases, one for each permutation of the Operating Sys
 - MacOS 12.0, FastDDS
 
 For every key (Operating System and RMW), there will be a test case for each value.
-
