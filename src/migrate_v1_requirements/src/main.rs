@@ -92,8 +92,17 @@ mod migrate_v1_requirements {
     use tempfile::tempdir;
 
     fn get_command() -> Command {
-        Command::cargo_bin(env!("CARGO_PKG_NAME"))
-            .expect("Gets the command - if not, make sure to run `cargo build`")
+        let binary_name = env!("CARGO_PKG_NAME");
+        match Command::cargo_bin(binary_name) {
+            Ok(command) => command,
+            Err(e) => {
+                eprintln!(
+                    "Failed to find the binary '{}'. Make sure to run `cargo build` first.",
+                    binary_name
+                );
+                panic!("Error details: {}", e);
+            }
+        }
     }
 
     #[test]
