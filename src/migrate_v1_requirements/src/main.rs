@@ -92,7 +92,8 @@ mod migrate_v1_requirements {
     use tempfile::tempdir;
 
     fn get_command() -> Command {
-        Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap()
+        Command::cargo_bin(env!("CARGO_PKG_NAME"))
+            .expect("Gets the command - if not, make sure to run `cargo build`")
     }
 
     #[test]
