@@ -32,14 +32,6 @@ There's a `markdown_toc` module that provides functionality for generating and m
 - Customizing the table of contents output
 - Prepending a table of contents to existing markdown content
 
-For more details, see:
-
-```
-rust:src/common/src/markdown_toc.rs
-startLine: 1
-endLine: 327
-```
-
 ### Common Types
 
 The module defines several common types used throughout the project:
