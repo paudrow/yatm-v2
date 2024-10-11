@@ -85,7 +85,7 @@ fn main() -> Result<()> {
 }
 
 #[cfg(test)]
-mod tests {
+mod migrate_v1_requirements {
     use assert_cmd::Command;
     use predicates::prelude::predicate;
     use std::path::Path;
