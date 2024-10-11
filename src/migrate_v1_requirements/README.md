@@ -1,8 +1,21 @@
-# README
+# YATM v1 to v2 Migration Script
 
-This is a migration script for YATM v1 requirements to YATM v2 requirements.
+This script facilitates the migration of YATM (Yet Another Test Manager) v1 requirements to YATM v2 format.
 
-## Getting started
+## Table of Contents
+
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+
+## Features
+
+- Converts YATM v1 requirement files to YATM v2 format
+- Supports custom output file naming and directory selection
+- Provides options for overwriting existing files
+
+## Prerequisites
+
+Before using this migration script, ensure you have Rust installed on your system. If you haven't installed Rust yet, you can do so by running:
 
 1. Install Rust
 

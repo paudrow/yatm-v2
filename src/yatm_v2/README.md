@@ -4,6 +4,22 @@ YATM v2 is a powerful tool for generating and managing test cases from requireme
 
 YATM v2 is a rewrite of the [original YATM tool](https://github.com/audrow/yatm), which was written in Typescript and used for several [ROS 2](https://docs.ros.org/) and [Gazebo](https://gazebosim.org/home) releases by [Open Robotics](https://www.openrobotics.org/) and [Intrinsic AI](https://intrinsic.ai/).
 
+## Table of Contents
+
+- [Key Features](#key-features)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Setting Up Your Workspace](#setting-up-your-workspace)
+- [Usage](#usage)
+  - [Terminology](#terminology)
+  - [Workflow](#workflow)
+  - [Parts of a requirements file](#parts-of-a-requirements-file)
+  - [Parts of a test case builder file](#parts-of-a-test-case-builder-file)
+    - [Understanding the `!Include` and `!Exclude` directives](#understanding-the-include-and-exclude-directives)
+    - [Understanding Permutations](#understanding-permutations)
+
+
 ## Key Features
 
 - Specify requirements in YAML files
