@@ -1,0 +1,20 @@
+{
+    "[markdown]": {
+        "editor.defaultFormatter": "yzhang.markdown-all-in-one",
+    },
+    "markdown.extension.toc.levels": "2..4",
+    "markdown.extension.toc.omittedFromToc": {
+        "README.md": [
+            "## Table of Contents",
+        ],
+        "src/common/README.md": [
+            "## Table of Contents",
+        ],
+        "src/migrate_v1_requirements/README.md": [
+            "## Table of Contents",
+        ],
+        "src/yatm_v2/README.md": [
+            "## Table of Contents",
+        ]
+    }
+}

@@ -85,14 +85,24 @@ fn main() -> Result<()> {
 }
 
 #[cfg(test)]
-mod tests {
+mod migrate_v1_requirements {
     use assert_cmd::Command;
     use predicates::prelude::predicate;
     use std::path::Path;
     use tempfile::tempdir;
 
     fn get_command() -> Command {
-        Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap()
+        let binary_name = env!("CARGO_PKG_NAME");
+        match Command::cargo_bin(binary_name) {
+            Ok(command) => command,
+            Err(e) => {
+                eprintln!(
+                    "Failed to find the binary '{}'. Make sure to run `cargo build` first.",
+                    binary_name
+                );
+                panic!("Error details: {}", e);
+            }
+        }
     }
 
     #[test]

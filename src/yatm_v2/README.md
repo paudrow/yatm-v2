@@ -1,70 +1,81 @@
-# YATM v2
+# YATM v2 (Yet Another Test Manager)
 
-YATM v2 is a tool for generating test cases from requirements for manual testing.
-It works well with putting issues on Github so that community contributors can help with testing.
+YATM v2 is a powerful tool for generating and managing test cases from requirements for manual testing. It's particularly useful for projects that rely on community contributors for testing, as it integrates seamlessly with GitHub issues.
 
 YATM v2 is a rewrite of the [original YATM tool](https://github.com/audrow/yatm), which was written in Typescript and used for several [ROS 2](https://docs.ros.org/) and [Gazebo](https://gazebosim.org/home) releases by [Open Robotics](https://www.openrobotics.org/) and [Intrinsic AI](https://intrinsic.ai/).
 
-## Features
+## Table of Contents
+
+- [Key Features](#key-features)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Setting Up Your Workspace](#setting-up-your-workspace)
+- [Usage](#usage)
+  - [Terminology](#terminology)
+  - [Workflow](#workflow)
+  - [Parts of a requirements file](#parts-of-a-requirements-file)
+  - [Parts of a test case builder file](#parts-of-a-test-case-builder-file)
+    - [Understanding the `!Include` and `!Exclude` directives](#understanding-the-include-and-exclude-directives)
+    - [Understanding Permutations](#understanding-permutations)
+
+
+## Key Features
 
 - Specify requirements in YAML files
-- Specify a test case builder to generate test cases from requirements
-- CLI interface
-- Upload test cases to Github issues (don't worry, it won't make duplicates)
-- Preview test cases locally in a markdown file before uploading to Github
-- Init a new YATM v2 project from the command line that sets up the config, file structure, and comes with sensible defaults
+- Generate test cases from requirements using a customizable test case builder
+- CLI interface for easy management
+- Upload test cases to GitHub issues (with duplicate prevention)
+- Preview test cases locally in markdown before uploading
+- Initialize new YATM v2 projects with sensible defaults
 - Migrate requirements from YATM v1 to v2
-- Verification commands to check for valid requirements and test case builder files. This also makes it easier to write code in other languages than Rust to generate requirements.
-- CLI tool for getting metrics on test cases on Github
-- Several Github utility functions to make common operations easier
-- Uses a tag to version of your YATM v2 workspace to make it easy to separate different iterations of your test cases, for uploading and analytics purposes.
-- Extensible design so you can build requirements builders.
-- An templated file for the Github issue template, which makes it much easier to customize the issue template for your project.
+- Validate requirements and test case builder files
+- Get metrics on test cases from GitHub
+- Extensible design for custom requirement builders
+- Customizable GitHub issue template
 
-## How to use YATM v2
+## Getting Started
 
-### Pre-requisites
+### Prerequisites
 
-1. Install Rust
+1. Install Rust:
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   ```
 
-    ```bash
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-    ```
+2. Create a GitHub repository for your project.
 
-1. Create a Github repository for your project and note the owner and name of the repository. For example, if the URL of your repository is `https://github.com/paudrow/yatm-v2`, then the owner is `paudrow` and the name is `yatm-v2`.
+3. Generate a GitHub personal access token with the following permissions:
+   - `Actions` (may be required)
+   - `Contents`
+   - `Issues`
+   - `Pull requests`
 
-1. Get a personal access token from Github. This token should have read and write access to the following.
+### Installation
 
-    * `Actions` (not 100% sure if this is necessary)
-    * `Contents`
-    * `Issues`
-    * `Pull requests`
+1. Clone the repository and build the project:
+   ```bash
+   git clone https://github.com/paudrow/yatm-v2.git
+   cd yatm-v2
+   cargo build
+   ```
 
-    Note that you can give the token permissions to only the repositories you want to use YATM v2 with.
+2. Run the tests:
+   ```bash
+   cargo test
+   ```
 
+3. Install YATM v2:
+   ```bash
+   cargo install --path src/yatm_v2
+   ```
 
-### Getting started
+### Setting Up Your Workspace
 
-1. Clone this repository and check that the tests pass.
-
-    ```bash
-    # from the root of this repository
-    cargo test
-    ```
-
-1. Install YATM v2 from the root of this repository
-
-    ```bash
-    cargo install --path src/yatm_v2
-    ```
-
-    > You can uninstall YATM v2 with `cargo uninstall yatm_v2`
-
-1. Initalize a new YATM v2 workspace
-
-    ```bash
-    yatm_v2 init --path /path/to/your/workspace
-    ```
+1. Initialize a new YATM v2 workspace:
+   ```bash
+   yatm_v2 init --path /path/to/your/workspace
+   ```
 
     This will create a new YATM v2 workspace with a `config.yaml` file and a `requirements` directory.
 
@@ -365,4 +376,3 @@ This will generate six test cases, one for each permutation of the Operating Sys
 - MacOS 12.0, FastDDS
 
 For every key (Operating System and RMW), there will be a test case for each value.
-
