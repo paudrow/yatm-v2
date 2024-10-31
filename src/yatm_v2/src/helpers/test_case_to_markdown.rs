@@ -11,6 +11,7 @@ struct GithubIssueTemplate {
     steps: Vec<Step>,
     links: Vec<Link>,
     selected_permutation: HashMap<String, String>,
+    minimum_permutations_to_render: usize,
 }
 
 pub fn test_case_to_markdown(
@@ -24,6 +25,8 @@ pub fn test_case_to_markdown(
         steps: test_case.requirement.steps,
         links: test_case.requirement.links.unwrap_or_default(),
         selected_permutation: test_case.selected_permutation,
+        minimum_permutations_to_render: test_case.builder_used.minimum_permutations_to_render
+            as usize,
     };
     let text_body = template.render().context("Failed to render the template")?;
 

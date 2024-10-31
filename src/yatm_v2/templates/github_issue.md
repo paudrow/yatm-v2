@@ -1,6 +1,6 @@
 {{ description }}
 
-{% if selected_permutation.len() > 0 -%}
+{% if selected_permutation.len() > minimum_permutations_to_render -%}
 ## Configuration
 
 {% for (key, value) in selected_permutation -%}
