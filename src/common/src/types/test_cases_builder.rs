@@ -13,6 +13,14 @@ pub struct TestCasesBuilder {
     pub labels: Option<Vec<String>>,
     /// The permutations to apply to the test cases.
     pub permutations: HashMap<String, Vec<String>>,
+    /// The minimum level of permutations to render in a test case
+    #[serde(default = "default_min_permutations_to_render")]
+    pub minimum_permutations_to_render: u32,
+}
+
+/// Default minimum number of permutations to render
+fn default_min_permutations_to_render() -> u32 {
+    0
 }
 
 impl TestCasesBuilder {
@@ -48,6 +56,7 @@ impl TestCasesBuilder {
             ],
             labels: Some(vec!["Demo".to_string()]),
             permutations,
+            minimum_permutations_to_render: default_min_permutations_to_render(),
         }
     }
 }

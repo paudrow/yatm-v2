@@ -98,6 +98,7 @@ mod test_make_test_cases {
                 );
                 m
             },
+            minimum_permutations_to_render: 0,
         };
         let result = make_test_cases_helper(&test_cases_builder, &requirements);
         let expected = vec![
@@ -187,6 +188,7 @@ mod test_make_test_cases {
                 );
                 m
             },
+            minimum_permutations_to_render: 0,
         };
         let result = make_test_cases_helper(&test_cases_builder, &requirements);
         let expected = vec![
@@ -262,6 +264,7 @@ mod test_make_test_cases {
                 negate: false,
             })],
             permutations: Default::default(),
+            minimum_permutations_to_render: 0,
         };
         let result = make_test_cases_helper(&test_cases_builder, &requirements);
         let expected: Vec<TestCase> = vec![];
@@ -421,6 +424,7 @@ mod test_get_selected_requirements {
                 negate: false,
             })],
             permutations: Default::default(),
+            minimum_permutations_to_render: 0,
         };
         let result = get_selected_requirements(&requirements, &test_cases_builder);
         let expected: Vec<Requirement> = vec![];
@@ -455,6 +459,7 @@ mod test_get_selected_requirements {
                 negate: false,
             })],
             permutations: Default::default(),
+            minimum_permutations_to_render: 0,
         };
         let result = get_selected_requirements(&requirements, &test_cases_builder);
         let expected = vec![requirements[0].clone()];
@@ -496,6 +501,7 @@ mod test_get_selected_requirements {
                 }),
             ],
             permutations: Default::default(),
+            minimum_permutations_to_render: 0,
         };
         let result = get_selected_requirements(&requirements, &test_cases_builder);
         let expected = requirements.clone();
@@ -537,6 +543,7 @@ mod test_get_selected_requirements {
                 }),
             ],
             permutations: Default::default(),
+            minimum_permutations_to_render: 0,
         };
         let result = get_selected_requirements(&requirements, &test_cases_builder);
         let expected = vec![requirements[0].clone()];
@@ -583,6 +590,7 @@ mod test_get_selected_requirements {
                 }),
             ],
             permutations: Default::default(),
+            minimum_permutations_to_render: 0,
         };
         let result = get_selected_requirements(&requirements, &test_cases_builder);
         let expected = vec![];
