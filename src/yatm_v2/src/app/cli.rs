@@ -19,6 +19,8 @@ use clap::{Parser, Subcommand};
 use octocrab::models::IssueState;
 use octocrab::params::State;
 
+use either::Either;
+
 // Define the main application
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -156,6 +158,11 @@ enum GithubSubcommands {
         /// The path to the project
         #[clap(short, long, default_value = ".")]
         config_path: PathBuf,
+
+        /// Upload in reverse so the first cases are newest
+        /// and are sorted to the top by default
+        #[clap(short, long)]
+        reverse_upload: bool,
     },
     /// Utilities for Github
     Utils {
@@ -454,7 +461,7 @@ pub async fn cli() -> Result<()> {
                 ))?;
                 println!("Created the test cases preview file: {:?}", output_path);
             }
-            GithubSubcommands::Upload { config_path } => {
+            GithubSubcommands::Upload { config_path, reverse_upload} => {
                 let config = load_config(&config_path)?;
 
                 // Get the test cases
@@ -484,7 +491,10 @@ pub async fn cli() -> Result<()> {
                     get_local_issues_without_matches(&local_issues, &github_issues);
                 let unmatched_local_issues_count = unmatched_local_issues.len();
                 println!("{} test cases without issues", unmatched_local_issues_count);
-                for issue in unmatched_local_issues {
+                let iter = 
+                    if reverse_upload { Either::Left(unmatched_local_issues.into_iter().rev()) }
+                    else { Either::Right(unmatched_local_issues.into_iter().rev())};
+                for issue in iter {
                     println!("Creating issue: {}", issue.title);
                     gh.create_issue(issue.title, issue.text_body, issue.labels)
                         .await?;
