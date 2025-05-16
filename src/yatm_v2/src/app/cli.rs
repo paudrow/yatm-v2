@@ -449,7 +449,11 @@ pub async fn cli() -> Result<()> {
 
                 // Write the test cases to a file
                 let datetime_string = chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
-                let output_file_name = format!("test-cases-{}.md", datetime_string);
+                let output_file_name = format!(
+                    "{}--generated-test-cases--{}.md",
+                    &config_path.display(),
+                    datetime_string
+                );
                 let output_path = config.generated_files_dir.join(output_file_name);
                 std::fs::create_dir_all(&config.generated_files_dir).context(format!(
                     "Failed to create generated files dir: {:?}",
