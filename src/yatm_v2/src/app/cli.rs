@@ -480,6 +480,7 @@ pub async fn cli() -> Result<()> {
 
                 // Get the issues from Github
                 let gh = Github::new(&config.repo_owner, &config.repo_name)?;
+                println!("Connecting to repository: {}/{}", config.repo_owner, config.repo_name);
                 let github_issues = gh.get_issues(Some(State::Open)).await?;
 
                 // Create issues that don't exist on Github
