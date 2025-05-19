@@ -68,6 +68,7 @@ mod test_make_test_cases {
         let requirements = vec![
             Requirement {
                 name: "name1".to_string(),
+                shortname: Some("n1".to_string()),
                 description: "description".to_string(),
                 labels: Some(vec!["label1".to_string()]),
                 links: None,
@@ -75,6 +76,7 @@ mod test_make_test_cases {
             },
             Requirement {
                 name: "name2".to_string(),
+                shortname: Some("n2".to_string()),
                 description: "description".to_string(),
                 labels: Some(vec!["label2".to_string()]),
                 links: None,
@@ -146,6 +148,7 @@ mod test_make_test_cases {
         let requirements = vec![
             Requirement {
                 name: "name1".to_string(),
+                shortname: Some("n1".to_string()),
                 description: "description".to_string(),
                 labels: Some(vec!["label1".to_string()]),
                 links: None,
@@ -153,6 +156,7 @@ mod test_make_test_cases {
             },
             Requirement {
                 name: "name2".to_string(),
+                shortname: Some("n2".to_string()),
                 description: "description".to_string(),
                 labels: Some(vec!["label2".to_string()]),
                 links: None,
@@ -239,6 +243,7 @@ mod test_make_test_cases {
         let requirements = vec![
             Requirement {
                 name: "name1".to_string(),
+                shortname: Some("n1".to_string()),
                 description: "description".to_string(),
                 labels: Some(vec!["label1".to_string()]),
                 links: None,
@@ -246,6 +251,7 @@ mod test_make_test_cases {
             },
             Requirement {
                 name: "name2".to_string(),
+                shortname: Some("n2".to_string()),
                 description: "description".to_string(),
                 labels: Some(vec!["label2".to_string()]),
                 links: None,
@@ -398,6 +404,7 @@ mod test_get_selected_requirements {
         let requirements = vec![
             Requirement {
                 name: "name1".to_string(),
+                shortname: Some("n1".to_string()),
                 description: "description".to_string(),
                 labels: Some(vec!["label1".to_string()]),
                 links: None,
@@ -405,6 +412,7 @@ mod test_get_selected_requirements {
             },
             Requirement {
                 name: "name2".to_string(),
+                shortname: Some("n2".to_string()),
                 description: "description".to_string(),
                 labels: Some(vec!["label2".to_string()]),
                 links: None,
@@ -432,6 +440,7 @@ mod test_get_selected_requirements {
         let requirements = vec![
             Requirement {
                 name: "name1".to_string(),
+                shortname: Some("n1".to_string()),
                 description: "description".to_string(),
                 labels: Some(vec!["label1".to_string()]),
                 links: None,
@@ -439,6 +448,7 @@ mod test_get_selected_requirements {
             },
             Requirement {
                 name: "name2".to_string(),
+                shortname: Some("n2".to_string()),
                 description: "description".to_string(),
                 labels: Some(vec!["label2".to_string()]),
                 links: None,
@@ -466,6 +476,7 @@ mod test_get_selected_requirements {
         let requirements = vec![
             Requirement {
                 name: "name1".to_string(),
+                shortname: Some("n1".to_string()),
                 description: "description".to_string(),
                 labels: Some(vec!["label1".to_string()]),
                 links: None,
@@ -473,6 +484,7 @@ mod test_get_selected_requirements {
             },
             Requirement {
                 name: "name2".to_string(),
+                shortname: Some("n2".to_string()),
                 description: "description".to_string(),
                 labels: Some(vec!["label2".to_string()]),
                 links: None,
@@ -507,6 +519,7 @@ mod test_get_selected_requirements {
         let requirements = vec![
             Requirement {
                 name: "name1".to_string(),
+                shortname: Some("n1".to_string()),
                 description: "description".to_string(),
                 labels: Some(vec!["label1".to_string()]),
                 links: None,
@@ -514,6 +527,7 @@ mod test_get_selected_requirements {
             },
             Requirement {
                 name: "name2".to_string(),
+                shortname: Some("n2".to_string()),
                 description: "description".to_string(),
                 labels: Some(vec!["label2".to_string()]),
                 links: None,
@@ -548,6 +562,7 @@ mod test_get_selected_requirements {
         let requirements = vec![
             Requirement {
                 name: "name1".to_string(),
+                shortname: Some("n1".to_string()),
                 description: "description".to_string(),
                 labels: Some(vec!["label1".to_string()]),
                 links: None,
@@ -555,6 +570,7 @@ mod test_get_selected_requirements {
             },
             Requirement {
                 name: "name2".to_string(),
+                shortname: Some("n2".to_string()),
                 description: "description".to_string(),
                 labels: Some(vec!["label2".to_string()]),
                 links: None,
@@ -642,6 +658,7 @@ mod test_filter_matches_requirements {
         };
         let requirement = Requirement {
             name: "name1".to_string(),
+            shortname: Some("n1".to_string()),
             description: "description".to_string(),
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
@@ -659,6 +676,7 @@ mod test_filter_matches_requirements {
         };
         let requirement = Requirement {
             name: "name1".to_string(),
+            shortname: Some("n1".to_string()),
             description: "description".to_string(),
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
@@ -676,6 +694,7 @@ mod test_filter_matches_requirements {
         };
         let requirement = Requirement {
             name: "name1".to_string(),
+            shortname: Some("n1".to_string()),
             description: "description".to_string(),
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
@@ -693,6 +712,7 @@ mod test_filter_matches_requirements {
         };
         let requirement = Requirement {
             name: "name1-1".to_string(),
+            shortname: Some("n1-1".to_string()),
             description: "description".to_string(),
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
@@ -710,6 +730,7 @@ mod test_filter_matches_requirements {
         };
         let requirement = Requirement {
             name: "name1".to_string(),
+            shortname: Some("n1".to_string()),
             description: "description".to_string(),
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
@@ -727,6 +748,7 @@ mod test_filter_matches_requirements {
         };
         let requirement = Requirement {
             name: "name1".to_string(),
+            shortname: Some("n1".to_string()),
             description: "description".to_string(),
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
@@ -744,6 +766,7 @@ mod test_filter_matches_requirements {
         };
         let requirement = Requirement {
             name: "name1".to_string(),
+            shortname: Some("n1".to_string()),
             description: "description".to_string(),
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
@@ -761,6 +784,7 @@ mod test_filter_matches_requirements {
         };
         let requirement = Requirement {
             name: "name1".to_string(),
+            shortname: Some("n1".to_string()),
             description: "description".to_string(),
             labels: Some(vec![
                 "label1".to_string(),
@@ -782,6 +806,7 @@ mod test_filter_matches_requirements {
         };
         let requirement = Requirement {
             name: "name1".to_string(),
+            shortname: Some("n1".to_string()),
             description: "description".to_string(),
             labels: Some(vec![
                 "label1".to_string(),
@@ -803,6 +828,7 @@ mod test_filter_matches_requirements {
         };
         let requirement = Requirement {
             name: "name1".to_string(),
+            shortname: Some("n1".to_string()),
             description: "description".to_string(),
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
@@ -820,6 +846,7 @@ mod test_filter_matches_requirements {
         };
         let requirement = Requirement {
             name: "name1".to_string(),
+            shortname: Some("n1".to_string()),
             description: "description".to_string(),
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
@@ -837,6 +864,7 @@ mod test_filter_matches_requirements {
         };
         let requirement = Requirement {
             name: "name3".to_string(),
+            shortname: Some("n1".to_string()),
             description: "description".to_string(),
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
@@ -854,6 +882,7 @@ mod test_filter_matches_requirements {
         };
         let requirement = Requirement {
             name: "name3".to_string(),
+            shortname: Some("n3".to_string()),
             description: "description".to_string(),
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
