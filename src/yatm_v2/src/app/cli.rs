@@ -542,7 +542,7 @@ pub async fn cli() -> Result<()> {
                 println!("{} test cases with changed issues", changed_local_issues_count);
 
                 for m in &changed_issues {
-                    println!("Changing issue: {}, {} \n {:?}", m.local_issue.title, m.github_issue.as_ref().unwrap().html_url, m.github_issue);
+                    println!("Updating issue: {}, {}", m.local_issue.title, m.github_issue.as_ref().unwrap().html_url);
                     gh.update_issue(m.github_issue.clone().unwrap().number, m.local_issue.title.clone(), m.local_issue.text_body.clone())
                         .await?; //, issue.labels
                 }
