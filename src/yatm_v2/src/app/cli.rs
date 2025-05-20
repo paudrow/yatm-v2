@@ -2,11 +2,23 @@ use crate::app::init_workspace::init_workspace;
 use crate::app::load_config::load_config;
 use crate::constants::YAML_EXTENSIONS;
 use crate::helpers::{
-    get_files, get_local_issues_without_matches, get_requirements_from_file, get_test_cases,
-    get_test_cases_builders_from_file, permutation_to_labels, project_version_to_label,
-    test_case_to_markdown, validate_requirements_file, validate_requirements_files,
+    self,
+    get_files,
+    get_local_issues_matches,
+    get_local_issues_without_matches,
+    get_requirements_from_file,
+    get_test_cases,
+    get_test_cases_builders_from_file,
+    permutation_to_labels,
+    project_version_to_label,
+    test_case_to_markdown,
+    validate_requirements_file,
+    validate_requirements_files,
     validate_test_cases_builder_file,
+    GithubIssueMatches,
+    IssueMatchType,
 };
+use crate::types::LocalIssue;
 use common::github::Github;
 use common::markdown_toc::{prepend_markdown_table_of_contents, TocOptions};
 use common::types::{Link, RequirementsFile, TestCasesBuilderFile};
@@ -490,17 +502,51 @@ pub async fn cli() -> Result<()> {
                 );
                 let github_issues = gh.get_issues(Some(State::Open)).await?;
 
+                let matched_issues = get_local_issues_matches(&local_issues, &github_issues);
+                for i in &matched_issues {
+                    match i.match_type{
+                        IssueMatchType::Match => println!("Matched: {} -- {}", i.local_issue.title, i.github_issue.as_ref().unwrap().html_url),
+                        IssueMatchType::MatchedWithDiff => println!("Changed: {} -- {}", i.local_issue.title, i.github_issue.as_ref().unwrap().html_url),
+                        IssueMatchType::Missing => println!("Missing: {}", i.local_issue.title),
+                        _ => println!("Unknown match type for {}", i.local_issue.title),
+
+                    }
+                }
+
                 // Create issues that don't exist on Github
-                let unmatched_local_issues =
-                    get_local_issues_without_matches(&local_issues, &github_issues);
+                let unmatched_local_issues: Vec<LocalIssue> =
+                    matched_issues
+                    .iter()
+                    .filter(|m| m.match_type == IssueMatchType::Missing)
+                    .map(|m| m.local_issue.clone())
+                    .collect();
                 let unmatched_local_issues_count = unmatched_local_issues.len();
                 println!("{} test cases without issues", unmatched_local_issues_count);
+                for i in &unmatched_local_issues {
+                    println!("Unmatched: {}", i.title);
+                }
                 for issue in unmatched_local_issues {
                     println!("Creating issue: {}", issue.title);
                     gh.create_issue(issue.title, issue.text_body, issue.labels)
                         .await?;
                 }
                 println!("{} issues created", unmatched_local_issues_count);
+
+                // Edit  issues that don't exactly match
+                let changed_issues: Vec<&GithubIssueMatches> =
+                    matched_issues
+                    .iter()
+                    .filter(|m| m.match_type == IssueMatchType::MatchedWithDiff)
+                    .collect();
+                let changed_local_issues_count = changed_issues.len();
+                println!("{} test cases with changed issues", changed_local_issues_count);
+
+                for m in &changed_issues {
+                    println!("Changing issue: {}, {} \n {:?}", m.local_issue.title, m.github_issue.as_ref().unwrap().html_url, m.github_issue);
+                    gh.update_issue(m.github_issue.clone().unwrap().number, m.local_issue.title.clone(), m.local_issue.text_body.clone())
+                        .await?; //, issue.labels
+                }
+
                 println!("Done 🚀");
             }
             GithubSubcommands::MakeLabelLinks { config_path } => {
