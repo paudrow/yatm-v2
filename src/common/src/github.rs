@@ -180,9 +180,8 @@ impl Github {
         issue_id: u64,
         title: String,
         body: String,
-        // labels: Vec<String>,
+        // labels: Vec<String>,  //TODO(tfoote) Restore label setting
     ) -> Result<()> {
-        println!("Updating Issue {}", issue_id);
         let result = self
             .octocrab
             .issues(&self.owner, &self.repo)

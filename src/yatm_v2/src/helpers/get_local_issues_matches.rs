@@ -44,6 +44,7 @@ pub fn get_local_issues_matches(
     results
 }
 
+// TODO(tfoote) Change this to a specific tag match
 fn is_local_issue_match_github_issue(
     local_issue: &LocalIssue,
     github_issue: &GithubIssue,
@@ -70,12 +71,11 @@ fn is_local_issue_identical_github_issue(
 
     let title_match: bool = 
         if local_issue.title == github_issue.title { true } else { false };
-        println!("title_compare [{}] [{}]", local_issue.title, github_issue.title);
 
     let body_match: bool =
         if local_issue.text_body == github_issue.body.clone().unwrap_or("".to_string() ) { true } else { false };
-        println!("body_compare AAAAAA\n {} \n BBBBBBB \n {} \n CCCCCCC", local_issue.text_body, github_issue.body.as_ref().unwrap_or(&"unwrap failed".to_string()));
-        println!("{:?}", github_issue.body);
+
+    //TODO (tfoote) check for missing labels
 
     // Full match
     title_match && body_match
