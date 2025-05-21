@@ -168,6 +168,10 @@ enum GithubSubcommands {
         /// The path to the project
         #[clap(short, long, default_value = ".")]
         config_path: PathBuf,
+
+        /// Do not push things remotely
+        #[clap(short = 'n', long)]
+        dry_run: bool,
     },
     /// Utilities for Github
     Utils {
@@ -473,7 +477,7 @@ pub async fn cli() -> Result<()> {
                 ))?;
                 println!("Created the test cases preview file: {:?}", output_path);
             }
-            GithubSubcommands::Upload { config_path } => {
+            GithubSubcommands::Upload { config_path, dry_run } => {
                 let config = load_config(&config_path)?;
 
                 // Get the test cases
@@ -527,8 +531,13 @@ pub async fn cli() -> Result<()> {
                 }
                 for issue in unmatched_local_issues {
                     println!("Creating issue: {}", issue.title);
-                    gh.create_issue(issue.title, issue.text_body, issue.labels)
-                        .await?;
+                    if dry_run {
+                        println!("Dry run skipping update.");
+                    }
+                    else {
+                        gh.create_issue(issue.title, issue.text_body, issue.labels)
+                            .await?;
+                    }
                 }
                 println!("{} issues created", unmatched_local_issues_count);
 
@@ -543,8 +552,13 @@ pub async fn cli() -> Result<()> {
 
                 for m in &changed_issues {
                     println!("Updating issue: {}, {}", m.local_issue.title, m.github_issue.as_ref().unwrap().html_url);
-                    gh.update_issue(m.github_issue.clone().unwrap().number, m.local_issue.title.clone(), m.local_issue.text_body.clone())
-                        .await?; //, issue.labels
+                    if dry_run {
+                        println!("Dry run skipping update.");
+                    }
+                    else {
+                        gh.update_issue(m.github_issue.clone().unwrap().number, m.local_issue.title.clone(), m.local_issue.text_body.clone())
+                            .await?; //, issue.labels
+                    }
                 }
 
                 println!("Done 🚀");
