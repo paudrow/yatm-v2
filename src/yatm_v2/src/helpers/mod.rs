@@ -11,7 +11,6 @@ pub use get_files::get_files;
 pub use get_local_issues_matches::get_local_issues_matches;
 pub use get_local_issues_matches::GithubIssueMatches;
 pub use get_local_issues_matches::IssueMatchType;
-pub use get_local_issues_without_matches::get_local_issues_without_matches;
 pub use get_test_cases::get_test_cases;
 pub use make_test_cases::make_test_cases;
 pub use requirements::{
