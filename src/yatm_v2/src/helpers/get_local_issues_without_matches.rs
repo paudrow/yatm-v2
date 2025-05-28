@@ -1,6 +1,5 @@
 use crate::types::LocalIssue;
-use octocrab::{models::issues::Issue as GithubIssue, service::body};
-use predicates::path::missing;
+use octocrab::models::issues::Issue as GithubIssue;
 
 /// The types of matches between a local issue and a github issue
 /// Canonical Match is matching permutation and shortname

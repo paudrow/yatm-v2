@@ -2,10 +2,8 @@ use crate::app::init_workspace::init_workspace;
 use crate::app::load_config::load_config;
 use crate::constants::YAML_EXTENSIONS;
 use crate::helpers::{
-    self,
     get_files,
     get_local_issues_matches,
-    get_local_issues_without_matches,
     get_requirements_from_file,
     get_test_cases,
     get_test_cases_builders_from_file,
