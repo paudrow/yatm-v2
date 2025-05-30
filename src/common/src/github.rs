@@ -128,7 +128,7 @@ impl Github {
             .issues(&self.owner, &self.repo)
             .list()
             .per_page(100)
-            .state(state.unwrap_or(State::Open)) // TODO(tfoote) don't filter for open only
+            .state(state.unwrap_or(State::All))
             .page(page)
             .send()
             .await
