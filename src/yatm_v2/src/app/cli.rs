@@ -498,11 +498,11 @@ pub async fn cli() -> Result<()> {
 
                 // Get the issues from Github
                 let gh = Github::new(&config.repo_owner, &config.repo_name)?;
-                println!(
-                    "Connecting to repository: {}/{}",
-                    config.repo_owner, config.repo_name
-                );
-                let github_issues = gh.get_issues(Some(State::Open)).await?;
+                println!("Connecting to repository: {}/{}",
+                    config.repo_owner,
+                    config.repo_name
+                    );
+                let github_issues = gh.get_issues(Some(State::All)).await?;
 
                 let matched_issues = get_local_issues_matches(&local_issues, &github_issues);
                 for i in &matched_issues {
