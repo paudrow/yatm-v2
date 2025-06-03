@@ -443,6 +443,9 @@ pub async fn cli() -> Result<()> {
                 };
                 file_contents =
                     prepend_markdown_table_of_contents(&file_contents, Some(&toc_options));
+                let gh = Github::new(&config.repo_owner, &config.repo_name)?;
+                
+                file_contents = gh.prepend_github_info(&file_contents);
 
                 // Write the test cases to a file
                 let datetime_string = chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
@@ -481,6 +484,7 @@ pub async fn cli() -> Result<()> {
 
                 // Get the issues from Github
                 let gh = Github::new(&config.repo_owner, &config.repo_name)?;
+                println!("Connecting to repository: {}/{}", config.repo_owner, config.repo_name);
                 let github_issues = gh.get_issues(Some(State::Open)).await?;
 
                 // Create issues that don't exist on Github
