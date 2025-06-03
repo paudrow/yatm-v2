@@ -200,15 +200,14 @@ impl Github {
         Ok(())
     }
 
-    pub fn prepend_github_info(
-        &self,
-        content: &String,
-    ) -> String {
-        let header = format!("# Github Target\n\nrepository: [{}/{}](https://github.com/{}/{})", self.owner, self.repo, self.owner, self.repo);
+    pub fn prepend_github_info(&self, content: &String) -> String {
+        let header = format!(
+            "# Github Target\n\nrepository: [{}/{}](https://github.com/{}/{})",
+            self.owner, self.repo, self.owner, self.repo
+        );
         if header.is_empty() {
             return content.clone();
         }
         format!("{}\n\n{}", header, content)
     }
 }
-
