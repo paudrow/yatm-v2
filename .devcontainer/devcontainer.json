@@ -1,0 +1,16 @@
+{
+  "name": "Rust Dev Container",
+  "image": "mcr.microsoft.com/devcontainers/rust:1-2024.04.1",
+  "features": {
+    "ghcr.io/devcontainers/features/rust:1": {}
+  },
+  "postCreateCommand": "cargo build",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": ["rust-lang.rust-analyzer"]
+    }
+  }
+}
