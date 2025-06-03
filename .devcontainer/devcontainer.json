@@ -1,6 +1,6 @@
 {
   "name": "Rust Dev Container",
-  "image": "mcr.microsoft.com/devcontainers/rust:1-1-bullseye",
+  "image": "mcr.microsoft.com/devcontainers/rust",
   "features": {
     "ghcr.io/devcontainers/features/rust:1": {}
   },
