@@ -2,19 +2,10 @@ use crate::app::init_workspace::init_workspace;
 use crate::app::load_config::load_config;
 use crate::constants::YAML_EXTENSIONS;
 use crate::helpers::{
-    get_files,
-    get_local_issues_matches,
-    get_requirements_from_file,
-    get_test_cases,
-    get_test_cases_builders_from_file,
-    permutation_to_labels,
-    project_version_to_label,
-    test_case_to_markdown,
-    validate_requirements_file,
-    validate_requirements_files,
-    validate_test_cases_builder_file,
-    GithubIssueMatches,
-    IssueMatchType,
+    get_files, get_local_issues_matches, get_requirements_from_file, get_test_cases,
+    get_test_cases_builders_from_file, permutation_to_labels, project_version_to_label,
+    test_case_to_markdown, validate_requirements_file, validate_requirements_files,
+    validate_test_cases_builder_file, GithubIssueMatches, IssueMatchType,
 };
 use crate::types::LocalIssue;
 use common::github::Github;
@@ -475,7 +466,10 @@ pub async fn cli() -> Result<()> {
                 ))?;
                 println!("Created the test cases preview file: {:?}", output_path);
             }
-            GithubSubcommands::Upload { config_path, dry_run } => {
+            GithubSubcommands::Upload {
+                config_path,
+                dry_run,
+            } => {
                 let config = load_config(&config_path)?;
 
                 // Get the test cases
@@ -498,26 +492,32 @@ pub async fn cli() -> Result<()> {
 
                 // Get the issues from Github
                 let gh = Github::new(&config.repo_owner, &config.repo_name)?;
-                println!("Connecting to repository: {}/{}",
-                    config.repo_owner,
-                    config.repo_name
-                    );
+                println!(
+                    "Connecting to repository: {}/{}",
+                    config.repo_owner, config.repo_name
+                );
                 let github_issues = gh.get_issues(Some(State::All)).await?;
 
                 let matched_issues = get_local_issues_matches(&local_issues, &github_issues);
                 for i in &matched_issues {
-                    match i.match_type{
-                        IssueMatchType::Match => println!("Matched: {} -- {}", i.local_issue.title, i.github_issue.as_ref().unwrap().html_url),
-                        IssueMatchType::MatchedWithDiff => println!("Changed: {} -- {}", i.local_issue.title, i.github_issue.as_ref().unwrap().html_url),
+                    match i.match_type {
+                        IssueMatchType::Match => println!(
+                            "Matched: {} -- {}",
+                            i.local_issue.title,
+                            i.github_issue.as_ref().unwrap().html_url
+                        ),
+                        IssueMatchType::MatchedWithDiff => println!(
+                            "Changed: {} -- {}",
+                            i.local_issue.title,
+                            i.github_issue.as_ref().unwrap().html_url
+                        ),
                         IssueMatchType::Missing => println!("Missing: {}", i.local_issue.title),
                         _ => println!("Unknown match type for {}", i.local_issue.title),
-
                     }
                 }
 
                 // Create issues that don't exist on Github
-                let unmatched_local_issues: Vec<LocalIssue> =
-                    matched_issues
+                let unmatched_local_issues: Vec<LocalIssue> = matched_issues
                     .iter()
                     .filter(|m| m.match_type == IssueMatchType::Missing)
                     .map(|m| m.local_issue.clone())
@@ -531,8 +531,7 @@ pub async fn cli() -> Result<()> {
                     println!("Creating issue: {}", issue.title);
                     if dry_run {
                         println!("Dry run skipping update.");
-                    }
-                    else {
+                    } else {
                         gh.create_issue(issue.title, issue.text_body, issue.labels)
                             .await?;
                     }
@@ -540,22 +539,31 @@ pub async fn cli() -> Result<()> {
                 println!("{} issues created", unmatched_local_issues_count);
 
                 // Edit  issues that don't exactly match
-                let changed_issues: Vec<&GithubIssueMatches> =
-                    matched_issues
+                let changed_issues: Vec<&GithubIssueMatches> = matched_issues
                     .iter()
                     .filter(|m| m.match_type == IssueMatchType::MatchedWithDiff)
                     .collect();
                 let changed_local_issues_count = changed_issues.len();
-                println!("{} test cases with changed issues", changed_local_issues_count);
+                println!(
+                    "{} test cases with changed issues",
+                    changed_local_issues_count
+                );
 
                 for m in &changed_issues {
-                    println!("Updating issue: {}, {}", m.local_issue.title, m.github_issue.as_ref().unwrap().html_url);
+                    println!(
+                        "Updating issue: {}, {}",
+                        m.local_issue.title,
+                        m.github_issue.as_ref().unwrap().html_url
+                    );
                     if dry_run {
                         println!("Dry run skipping update.");
-                    }
-                    else {
-                        gh.update_issue(m.github_issue.clone().unwrap().number, m.local_issue.title.clone(), m.local_issue.text_body.clone())
-                            .await?; //, issue.labels
+                    } else {
+                        gh.update_issue(
+                            m.github_issue.clone().unwrap().number,
+                            m.local_issue.title.clone(),
+                            m.local_issue.text_body.clone(),
+                        )
+                        .await?; //, issue.labels
                     }
                 }
 

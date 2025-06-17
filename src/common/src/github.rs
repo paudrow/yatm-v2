@@ -248,4 +248,3 @@ impl Github {
         format!("{}\n\n{}", header, content)
     }
 }
-

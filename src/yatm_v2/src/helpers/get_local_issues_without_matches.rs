@@ -4,8 +4,8 @@ use octocrab::models::issues::Issue as GithubIssue;
 /// The types of matches between a local issue and a github issue
 /// Canonical Match is matching permutation and shortname
 enum IssueMatchType {
-    Missing, // No equivalant GitHub Issue found
-    Match, // Matching github issue found
+    Missing,         // No equivalant GitHub Issue found
+    Match,           // Matching github issue found
     MatchedWithDiff, // Matching GitHub Issue found but with some differences
 }
 
@@ -74,7 +74,7 @@ struct GithubIssueHelper {
 //     github_issue: &GithubIssue,
 // ) -> bool {
 
-//     let title_match: bool = 
+//     let title_match: bool =
 //         if local_issue.title == github_issue.title { true } else { false };
 
 //     let body_match: bool =
