@@ -4,6 +4,7 @@ use common::types::{
     Action as ActionV2, Expect as ExpectV2, Requirement as RequirementV2,
     RequirementsFile as RequirementsFileV2, Step as StepV2, Terminal as TerminalV2,
 };
+use convert_case::{Case, Casing};
 
 pub fn convert_requirements_file_v1_to_v2(
     file_v1: &RequirementsFileV1,
@@ -43,6 +44,7 @@ fn convert_v1_to_v2(req_v1: &RequirementV1) -> Result<RequirementV2> {
 
     Ok(RequirementV2 {
         name: req_v1.name.clone(),
+        shortname: Some(req_v1.name.clone().to_case(Case::Snake)),
         description: req_v1.description.clone().unwrap_or_default(),
         steps,
         labels: req_v1.labels.clone(),
