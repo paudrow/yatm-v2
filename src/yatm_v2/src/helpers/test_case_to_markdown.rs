@@ -45,6 +45,14 @@ fn get_labels(test_case: &TestCase, workspace_version: &String) -> Vec<String> {
     if let Some(labels_) = test_case.requirement.labels.clone() {
         labels.extend(labels_);
     }
+    labels.push(format!(
+        "requirement: {}",
+        test_case
+            .requirement
+            .shortname
+            .clone()
+            .unwrap_or(test_case.requirement.name.clone())
+    ));
     labels.extend(permutation_to_labels(&test_case.selected_permutation));
     labels.push(project_version_to_label(workspace_version));
     labels
