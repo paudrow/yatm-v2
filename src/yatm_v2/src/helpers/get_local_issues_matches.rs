@@ -52,7 +52,7 @@ pub fn get_local_issues_matches(
 // TODO(tfoote) Change this to a specific tag match
 fn is_local_issue_match_github_issue(local_issue: &LocalIssue, github_issue: &GithubIssue) -> bool {
     for label in local_issue.labels.iter() {
-        let github_issue_label_names = github_issue.labels.iter();
+        // let github_issue_label_names = github_issue.labels.iter();
         if !github_issue
             .labels
             .iter()
