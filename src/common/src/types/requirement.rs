@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Requirement {
     pub name: String,
+    pub shortname: Option<String>,
     pub description: String,
     pub steps: Vec<Step>,
     pub labels: Option<Vec<String>>,
@@ -13,6 +14,7 @@ impl Requirement {
     pub fn default() -> Self {
         Requirement {
             name: "name".to_string(),
+            shortname: Some("shortname".to_string()),
             description: "description".to_string(),
             steps: vec![Step {
                 name: Some("step name".to_string()),

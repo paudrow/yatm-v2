@@ -128,7 +128,7 @@ impl Github {
             .issues(&self.owner, &self.repo)
             .list()
             .per_page(100)
-            .state(state.unwrap_or(State::Open))
+            .state(state.unwrap_or(State::All))
             .page(page)
             .send()
             .await
@@ -169,6 +169,43 @@ impl Github {
                 sleep(Duration::from_secs(60)).await;
                 // Retry the request by calling the function recursively.
                 return self.create_issue(title, body, labels).await;
+            }
+        }
+        Err(anyhow!(error))
+    }
+
+    #[async_recursion]
+    pub async fn update_issue(
+        &self,
+        issue_id: u64,
+        title: String,
+        body: String,
+        // labels: Vec<String>,  //TODO(tfoote) Restore label setting
+    ) -> Result<()> {
+        let result = self
+            .octocrab
+            .issues(&self.owner, &self.repo)
+            .update(issue_id)
+            .title(&title)
+            .body(&body)
+            // .labels(labels.clone())
+            .send()
+            .await;
+
+        if result.is_ok() {
+            return Ok(());
+        }
+
+        let error = result.unwrap_err();
+        if let octocrab::Error::GitHub { source, .. } = &error {
+            if source
+                .message
+                .contains("You have exceeded a secondary rate limit")
+            {
+                println!("Secondary rate limit exceeded, waiting 60 seconds and retrying");
+                sleep(Duration::from_secs(60)).await;
+                // Retry the request by calling the function recursively.
+                return self.update_issue(issue_id, title, body).await; //, labels
             }
         }
         Err(anyhow!(error))
