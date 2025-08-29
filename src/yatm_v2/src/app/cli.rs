@@ -504,12 +504,20 @@ pub async fn cli() -> Result<()> {
                         IssueMatchType::Match => println!(
                             "Matched: {} -- {}",
                             i.local_issue.title,
-                            i.github_issue.as_ref().unwrap().html_url
+                            i.github_issue
+                                .as_ref()
+                                .map_or("No URL for issue".to_string(), |issue| issue
+                                    .html_url
+                                    .to_string())
                         ),
                         IssueMatchType::MatchedWithDiff => println!(
                             "Changed: {} -- {}",
                             i.local_issue.title,
-                            i.github_issue.as_ref().unwrap().html_url
+                            i.github_issue
+                                .as_ref()
+                                .map_or("No URL for issue".to_string(), |issue| issue
+                                    .html_url
+                                    .to_string())
                         ),
                         IssueMatchType::Missing => println!("Missing: {}", i.local_issue.title),
                         _ => println!("Unknown match type for {}", i.local_issue.title),
