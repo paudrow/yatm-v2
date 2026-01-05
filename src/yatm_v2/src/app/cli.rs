@@ -13,8 +13,8 @@ use common::markdown_toc::{prepend_markdown_table_of_contents, TocOptions};
 use common::types::{Link, RequirementsFile, TestCasesBuilderFile};
 
 use std::collections::HashSet;
-use std::path::PathBuf;
 use std::ffi::OsStr;
+use std::path::PathBuf;
 
 use anyhow::{Context, Ok, Result};
 use clap::{Parser, Subcommand};
@@ -457,7 +457,10 @@ pub async fn cli() -> Result<()> {
                 let datetime_string = chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
                 let output_file_name = format!(
                     "config_path--{}--generated-test-cases--{}.md",
-                    &config_path.file_prefix().unwrap_or(OsStr::new("undefined")).display(),
+                    &config_path
+                        .file_prefix()
+                        .unwrap_or(OsStr::new("undefined"))
+                        .display(),
                     datetime_string
                 );
                 let output_path = config.generated_files_dir.join(output_file_name);
