@@ -14,6 +14,7 @@ use common::types::{Link, RequirementsFile, TestCasesBuilderFile};
 
 use std::collections::HashSet;
 use std::path::PathBuf;
+use std::ffi::OsStr;
 
 use anyhow::{Context, Ok, Result};
 use clap::{Parser, Subcommand};
@@ -455,8 +456,8 @@ pub async fn cli() -> Result<()> {
                 // Write the test cases to a file
                 let datetime_string = chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
                 let output_file_name = format!(
-                    "{}--generated-test-cases--{}.md",
-                    &config_path.display(),
+                    "config_path--{}--generated-test-cases--{}.md",
+                    &config_path.file_prefix().unwrap_or(OsStr::new("undefined")).display(),
                     datetime_string
                 );
                 let output_path = config.generated_files_dir.join(output_file_name);
