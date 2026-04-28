@@ -458,7 +458,7 @@ pub async fn cli() -> Result<()> {
                 let output_file_name = format!(
                     "config_path--{}--generated-test-cases--{}.md",
                     &config_path
-                        .file_prefix()
+                        .file_stem()
                         .unwrap_or(OsStr::new("undefined"))
                         .display(),
                     datetime_string
@@ -528,6 +528,7 @@ pub async fn cli() -> Result<()> {
                                     .to_string())
                         ),
                         IssueMatchType::Missing => println!("Missing: {}", i.local_issue.title),
+                        #[allow(unreachable_patterns)]
                         _ => println!("Unknown match type for {}", i.local_issue.title),
                     }
                 }
