@@ -11,7 +11,7 @@ use octocrab::Octocrab;
 use tokio::time::{sleep, Duration};
 
 pub struct Github {
-    octocrab: Octocrab,
+    octocrab: Option<Octocrab>,
     owner: String,
     repo: String,
 }
@@ -20,16 +20,27 @@ impl Github {
     pub fn new(owner: &String, repo: &String) -> Result<Self> {
         dotenv().ok();
 
-        let token = std::env::var("GITHUB_TOKEN").context("GITHUB_TOKEN not set")?;
+        let token = std::env::var("GITHUB_TOKEN");
+
+        let octocrab = match token {
+            std::result::Result::Ok(token) => Some(
+                Octocrab::builder()
+                    .personal_token(token)
+                    .build()
+                    .context("Failed to create octocrab")?,
+            ),
+            Err(_) => None,
+        };
 
         Ok(Self {
-            octocrab: Octocrab::builder()
-                .personal_token(token)
-                .build()
-                .context("Failed to create octocrab")?,
+            octocrab,
             owner: owner.clone(),
             repo: repo.clone(),
         })
+    }
+
+    fn get_octocrab(&self) -> Result<&Octocrab> {
+        self.octocrab.as_ref().context("GITHUB_TOKEN not set")
     }
 
     pub async fn get_labels(&self) -> Result<Vec<Label>> {
@@ -47,7 +58,7 @@ impl Github {
     }
     async fn get_labels_helper(&self, page: u32) -> Result<Vec<Label>> {
         let page = self
-            .octocrab
+            .get_octocrab()?
             .issues(&self.owner, &self.repo)
             .list_labels_for_repo()
             .per_page(100)
@@ -70,7 +81,7 @@ impl Github {
                 percent_encoding::NON_ALPHANUMERIC,
             )
             .to_string();
-            self.octocrab
+            self.get_octocrab()?
                 .issues(&self.owner, &self.repo)
                 .delete_label(&label_name)
                 .await
@@ -91,7 +102,7 @@ impl Github {
                 println!("Skipping '{}' because it already exists", label.name);
                 continue;
             }
-            self.octocrab
+            self.get_octocrab()?
                 .issues(&self.owner, &self.repo)
                 .create_label(
                     &label.name,
@@ -124,7 +135,7 @@ impl Github {
 
     async fn get_issues_helper(&self, page: u32, state: Option<State>) -> Result<Vec<Issue>> {
         let page = self
-            .octocrab
+            .get_octocrab()?
             .issues(&self.owner, &self.repo)
             .list()
             .per_page(100)
@@ -147,7 +158,7 @@ impl Github {
         labels: Vec<String>,
     ) -> Result<()> {
         let result = self
-            .octocrab
+            .get_octocrab()?
             .issues(&self.owner, &self.repo)
             .create(&title)
             .body(&body)
@@ -183,7 +194,7 @@ impl Github {
         // labels: Vec<String>,  //TODO(tfoote) Restore label setting
     ) -> Result<()> {
         let result = self
-            .octocrab
+            .get_octocrab()?
             .issues(&self.owner, &self.repo)
             .update(issue_id)
             .title(&title)
@@ -224,7 +235,7 @@ impl Github {
     }
 
     pub async fn close_issue(&self, issue: &Issue) -> Result<()> {
-        self.octocrab
+        self.get_octocrab()?
             .issues(&self.owner, &self.repo)
             .update(issue.number)
             .state(IssueState::Closed)
