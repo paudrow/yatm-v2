@@ -283,6 +283,10 @@ where
     T: Clone + Eq + std::hash::Hash + Ord,
     U: Clone,
 {
+    if data.is_empty() {
+        return Vec::new();
+    }
+
     // Convert the HashMap into a Vec of (key, Vec<value>) pairs
     let mut items: Vec<(_, _)> = data.into_iter().collect();
 
