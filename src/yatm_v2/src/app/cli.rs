@@ -952,6 +952,7 @@ mod test_cli {
     }
 
     #[test]
+    #[cfg(feature = "github_tests")]
     fn test_github() {
         let dir = tempdir().unwrap().path().to_path_buf();
 
