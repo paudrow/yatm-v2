@@ -450,7 +450,10 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement, None), true);
+        assert_eq!(
+            filter_matches_requirement(&filter, &requirement, None),
+            true
+        );
     }
 
     #[test]
@@ -468,7 +471,10 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement, None), false);
+        assert_eq!(
+            filter_matches_requirement(&filter, &requirement, None),
+            false
+        );
     }
 
     #[test]
@@ -486,7 +492,10 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement, None), true);
+        assert_eq!(
+            filter_matches_requirement(&filter, &requirement, None),
+            true
+        );
     }
 
     #[test]
@@ -504,7 +513,10 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement, None), true);
+        assert_eq!(
+            filter_matches_requirement(&filter, &requirement, None),
+            true
+        );
     }
 
     #[test]
@@ -522,7 +534,10 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement, None), false);
+        assert_eq!(
+            filter_matches_requirement(&filter, &requirement, None),
+            false
+        );
     }
 
     #[test]
@@ -540,7 +555,10 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement, None), true);
+        assert_eq!(
+            filter_matches_requirement(&filter, &requirement, None),
+            true
+        );
     }
 
     #[test]
@@ -558,7 +576,10 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement, None), false);
+        assert_eq!(
+            filter_matches_requirement(&filter, &requirement, None),
+            false
+        );
     }
 
     #[test]
@@ -576,7 +597,10 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement, None), true);
+        assert_eq!(
+            filter_matches_requirement(&filter, &requirement, None),
+            true
+        );
     }
 
     #[test]
@@ -594,7 +618,10 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement, None), false);
+        assert_eq!(
+            filter_matches_requirement(&filter, &requirement, None),
+            false
+        );
     }
 
     #[test]
@@ -612,7 +639,10 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement, None), false);
+        assert_eq!(
+            filter_matches_requirement(&filter, &requirement, None),
+            false
+        );
     }
 
     #[test]
@@ -630,7 +660,10 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement, None), true);
+        assert_eq!(
+            filter_matches_requirement(&filter, &requirement, None),
+            true
+        );
     }
 
     #[test]
@@ -648,7 +681,10 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement, None), true);
+        assert_eq!(
+            filter_matches_requirement(&filter, &requirement, None),
+            true
+        );
     }
 
     #[test]
@@ -666,7 +702,10 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement, None), false);
+        assert_eq!(
+            filter_matches_requirement(&filter, &requirement, None),
+            false
+        );
     }
 
     #[test]
@@ -707,7 +746,10 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement, None), false);
+        assert_eq!(
+            filter_matches_requirement(&filter, &requirement, None),
+            false
+        );
     }
 
     #[test]
@@ -725,6 +767,9 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement, None), true);
+        assert_eq!(
+            filter_matches_requirement(&filter, &requirement, None),
+            true
+        );
     }
 }
