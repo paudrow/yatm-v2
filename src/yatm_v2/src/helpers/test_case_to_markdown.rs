@@ -40,28 +40,28 @@ pub fn test_case_to_markdown(
 fn get_labels(test_case: &TestCase, workspace_version: &String) -> Vec<String> {
     let mut labels: Vec<String> = vec![];
     if let Some(labels_) = test_case.builder_used.labels.clone() {
-        labels.extend(labels_);
+        labels.extend(labels_.into_iter().map(sanitize_label));
     }
     if let Some(labels_) = test_case.requirement.labels.clone() {
-        labels.extend(labels_);
+        labels.extend(labels_.into_iter().map(sanitize_label));
     }
-    labels.push(format!(
+    labels.push(sanitize_label(format!(
         "requirement: {}",
         test_case
             .requirement
             .shortname
             .clone()
             .unwrap_or(test_case.requirement.name.clone())
-    ));
+    )));
     labels.extend(permutation_to_labels(&test_case.selected_permutation));
-    labels.push(project_version_to_label(workspace_version));
+    labels.push(sanitize_label(project_version_to_label(workspace_version)));
     labels
 }
 
 pub fn permutation_to_labels(permutations: &HashMap<String, String>) -> Vec<String> {
     let mut labels: Vec<String> = vec![];
     for (key, value) in permutations.iter() {
-        labels.push(format!("{}: {}", key, value));
+        labels.push(sanitize_label(format!("{}: {}", key, value)));
     }
     labels.sort();
     labels
@@ -69,4 +69,13 @@ pub fn permutation_to_labels(permutations: &HashMap<String, String>) -> Vec<Stri
 
 pub fn project_version_to_label(workspace_version: &String) -> String {
     format!("version: {}", workspace_version)
+}
+
+fn sanitize_label(label: String) -> String {
+    let sanitized = label.replace(",", "").replace("`", "");
+    if sanitized.len() > 50 {
+        sanitized[..50].to_string()
+    } else {
+        sanitized
+    }
 }
