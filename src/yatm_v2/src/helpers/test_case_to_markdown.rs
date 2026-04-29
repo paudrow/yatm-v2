@@ -2,7 +2,7 @@ use crate::types::LocalIssue;
 use anyhow::{Context, Result};
 use askama::Template;
 use common::types::{Action, Expect, Link, Step, TestCase};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Template, Clone)]
 #[template(path = "github_issue.md")]
@@ -10,7 +10,7 @@ struct GithubIssueTemplate {
     description: String,
     steps: Vec<Step>,
     links: Vec<Link>,
-    selected_permutation: HashMap<String, String>,
+    selected_permutation: BTreeMap<String, String>,
     minimum_permutations_to_render: usize,
 }
 
@@ -24,7 +24,7 @@ pub fn test_case_to_markdown(
         description: test_case.requirement.description,
         steps: test_case.requirement.steps,
         links: test_case.requirement.links.unwrap_or_default(),
-        selected_permutation: test_case.selected_permutation,
+        selected_permutation: test_case.selected_permutation.into_iter().collect(),
         minimum_permutations_to_render: test_case.builder_used.minimum_permutations_to_render
             as usize,
     };
@@ -55,6 +55,7 @@ fn get_labels(test_case: &TestCase, workspace_version: &String) -> Vec<String> {
     )));
     labels.extend(permutation_to_labels(&test_case.selected_permutation));
     labels.push(sanitize_label(project_version_to_label(workspace_version)));
+    labels.sort();
     labels
 }
 
