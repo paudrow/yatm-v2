@@ -23,17 +23,39 @@ fn make_test_cases_helper(
     requirements: &Vec<Requirement>,
 ) -> Vec<TestCase> {
     let permutations = get_cartesian_product(test_cases_builder.permutations.clone());
-    let requirements = get_selected_requirements(requirements, test_cases_builder);
 
     let mut test_cases = Vec::new();
 
     for requirement in requirements.iter() {
         for permutation in &permutations {
-            test_cases.push(TestCase {
-                requirement: requirement.clone(),
-                builder_used: test_cases_builder.clone(),
-                selected_permutation: permutation.clone(),
-            });
+            let mut included = false;
+            let mut has_include_rules = false;
+
+            for set in test_cases_builder.set.iter() {
+                match set {
+                    SetSteps::Include(filter) => {
+                        has_include_rules = true;
+                        if filter_matches_requirement(filter, requirement, Some(permutation)) {
+                            included = true;
+                        }
+                    }
+                    SetSteps::Exclude(filter) => {
+                        if filter_matches_requirement(filter, requirement, Some(permutation)) {
+                            included = false;
+                            // If excluded, we can stop checking for this specific pair
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if included || !has_include_rules {
+                test_cases.push(TestCase {
+                    requirement: requirement.clone(),
+                    builder_used: test_cases_builder.clone(),
+                    selected_permutation: permutation.clone(),
+                });
+            }
         }
     }
 
@@ -373,7 +395,7 @@ fn get_selected_requirements(
         match set {
             SetSteps::Include(filter) => {
                 for requirement in requirements.iter() {
-                    if filter_matches_requirement(filter, requirement) {
+                    if filter_matches_requirement(filter, requirement, None) {
                         selected_requirements.push(requirement.clone());
                     }
                 }
@@ -381,7 +403,7 @@ fn get_selected_requirements(
             SetSteps::Exclude(filter) => {
                 selected_requirements = selected_requirements
                     .into_iter()
-                    .filter(|requirement| !filter_matches_requirement(filter, requirement))
+                    .filter(|requirement| !filter_matches_requirement(filter, requirement, None))
                     .collect();
             }
         }
@@ -619,16 +641,23 @@ mod test_get_selected_requirements {
 }
 
 /// Returns true if the requirement matches the filter
-fn filter_matches_requirement(filter: &Filter, requirement: &Requirement) -> bool {
+fn filter_matches_requirement(
+    filter: &Filter,
+    requirement: &Requirement,
+    selected_permutation: Option<&HashMap<String, String>>,
+) -> bool {
+    let mut labels = requirement.labels.clone().unwrap_or_default();
+    if let Some(permutation) = selected_permutation {
+        labels.extend(permutation.values().cloned());
+    }
+
     let label_matches = match &filter.all_labels {
-        Some(labels) => {
+        Some(filter_labels) => {
             let mut all_labels_match = true;
-            for label in labels.iter() {
-                if let Some(requirement_labels) = &requirement.labels {
-                    if !requirement_labels.contains(label) {
-                        all_labels_match = false;
-                        break;
-                    }
+            for label in filter_labels.iter() {
+                if !labels.contains(label) {
+                    all_labels_match = false;
+                    break;
                 }
             }
             all_labels_match
@@ -660,6 +689,7 @@ mod test_filter_matches_requirements {
 
     use super::filter_matches_requirement;
     use common::types::{Filter, Requirement};
+    use std::collections::HashMap;
 
     #[test]
     fn label() {
@@ -676,7 +706,7 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement), true);
+        assert_eq!(filter_matches_requirement(&filter, &requirement, None), true);
     }
 
     #[test]
@@ -694,7 +724,7 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement), false);
+        assert_eq!(filter_matches_requirement(&filter, &requirement, None), false);
     }
 
     #[test]
@@ -712,7 +742,7 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement), true);
+        assert_eq!(filter_matches_requirement(&filter, &requirement, None), true);
     }
 
     #[test]
@@ -723,14 +753,14 @@ mod test_filter_matches_requirements {
             negate: false,
         };
         let requirement = Requirement {
-            name: "name1-1".to_string(),
-            shortname: Some("n1-1".to_string()),
+            name: "name1".to_string(),
+            shortname: Some("n1".to_string()),
             description: "description".to_string(),
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement), true);
+        assert_eq!(filter_matches_requirement(&filter, &requirement, None), true);
     }
 
     #[test]
@@ -748,7 +778,7 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement), false);
+        assert_eq!(filter_matches_requirement(&filter, &requirement, None), false);
     }
 
     #[test]
@@ -766,7 +796,7 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement), true);
+        assert_eq!(filter_matches_requirement(&filter, &requirement, None), true);
     }
 
     #[test]
@@ -784,13 +814,13 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement), false);
+        assert_eq!(filter_matches_requirement(&filter, &requirement, None), false);
     }
 
     #[test]
     fn labels_with_extra_requirement_labels() {
         let filter = Filter {
-            all_labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            all_labels: Some(vec!["label1".to_string()]),
             any_names: None,
             negate: false,
         };
@@ -798,21 +828,17 @@ mod test_filter_matches_requirements {
             name: "name1".to_string(),
             shortname: Some("n1".to_string()),
             description: "description".to_string(),
-            labels: Some(vec![
-                "label1".to_string(),
-                "label2".to_string(),
-                "label3".to_string(),
-            ]),
+            labels: Some(vec!["label1".to_string(), "extra".to_string()]),
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement), true);
+        assert_eq!(filter_matches_requirement(&filter, &requirement, None), true);
     }
 
     #[test]
     fn labels_with_extra_requirement_labels_negate() {
         let filter = Filter {
-            all_labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            all_labels: Some(vec!["label1".to_string()]),
             any_names: None,
             negate: true,
         };
@@ -820,15 +846,11 @@ mod test_filter_matches_requirements {
             name: "name1".to_string(),
             shortname: Some("n1".to_string()),
             description: "description".to_string(),
-            labels: Some(vec![
-                "label1".to_string(),
-                "label2".to_string(),
-                "label3".to_string(),
-            ]),
+            labels: Some(vec!["label1".to_string(), "extra".to_string()]),
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement), false);
+        assert_eq!(filter_matches_requirement(&filter, &requirement, None), false);
     }
 
     #[test]
@@ -846,7 +868,7 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement), false);
+        assert_eq!(filter_matches_requirement(&filter, &requirement, None), false);
     }
 
     #[test]
@@ -864,42 +886,101 @@ mod test_filter_matches_requirements {
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement), true);
+        assert_eq!(filter_matches_requirement(&filter, &requirement, None), true);
     }
 
     #[test]
     fn one_name_of_many() {
         let filter = Filter {
             all_labels: None,
-            any_names: Some(vec!["name1".to_string(), "name3".to_string()]),
+            any_names: Some(vec!["name1".to_string(), "name2".to_string()]),
             negate: false,
         };
         let requirement = Requirement {
-            name: "name3".to_string(),
-            shortname: Some("n1".to_string()),
+            name: "name2".to_string(),
+            shortname: Some("n2".to_string()),
             description: "description".to_string(),
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement), true);
+        assert_eq!(filter_matches_requirement(&filter, &requirement, None), true);
     }
 
     #[test]
     fn one_name_of_many_negate() {
         let filter = Filter {
             all_labels: None,
-            any_names: Some(vec!["name1".to_string(), "name3".to_string()]),
+            any_names: Some(vec!["name1".to_string(), "name2".to_string()]),
             negate: true,
         };
         let requirement = Requirement {
-            name: "name3".to_string(),
-            shortname: Some("n3".to_string()),
+            name: "name1".to_string(),
+            shortname: Some("n1".to_string()),
             description: "description".to_string(),
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
         };
-        assert_eq!(filter_matches_requirement(&filter, &requirement), false);
+        assert_eq!(filter_matches_requirement(&filter, &requirement, None), false);
+    }
+
+    #[test]
+    fn name_partial_with_permutation() {
+        let filter = Filter {
+            all_labels: Some(vec!["label1".to_string(), "value1".to_string()]),
+            any_names: None,
+            negate: false,
+        };
+        let requirement = Requirement {
+            name: "name1".to_string(),
+            shortname: Some("n1".to_string()),
+            description: "description".to_string(),
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            links: None,
+            steps: vec![],
+        };
+        let mut permutation = HashMap::new();
+        permutation.insert("key1".to_string(), "value1".to_string());
+        assert_eq!(
+            filter_matches_requirement(&filter, &requirement, Some(&permutation)),
+            true
+        );
+    }
+
+    #[test]
+    fn name_no_match() {
+        let filter = Filter {
+            all_labels: None,
+            any_names: Some(vec!["name3".to_string()]),
+            negate: false,
+        };
+        let requirement = Requirement {
+            name: "name1".to_string(),
+            shortname: Some("n1".to_string()),
+            description: "description".to_string(),
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            links: None,
+            steps: vec![],
+        };
+        assert_eq!(filter_matches_requirement(&filter, &requirement, None), false);
+    }
+
+    #[test]
+    fn label_any_names() {
+        let filter = Filter {
+            all_labels: Some(vec!["label1".to_string()]),
+            any_names: Some(vec!["name1".to_string()]),
+            negate: false,
+        };
+        let requirement = Requirement {
+            name: "name1".to_string(),
+            shortname: Some("n1".to_string()),
+            description: "description".to_string(),
+            labels: Some(vec!["label1".to_string(), "label2".to_string()]),
+            links: None,
+            steps: vec![],
+        };
+        assert_eq!(filter_matches_requirement(&filter, &requirement, None), true);
     }
 }
