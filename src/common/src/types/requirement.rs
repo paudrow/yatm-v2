@@ -1,5 +1,14 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct RequirementSource {
+    pub repo: String,
+    pub branch: String,
+    pub filepath: String,
+    pub line: Option<usize>,
+    pub web_browsing_link: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Requirement {
     pub name: String,
@@ -8,6 +17,8 @@ pub struct Requirement {
     pub steps: Vec<Step>,
     pub labels: Option<Vec<String>>,
     pub links: Option<Vec<Link>>,
+    #[serde(skip_deserializing)]
+    pub source: Option<RequirementSource>,
 }
 
 impl Requirement {
@@ -53,6 +64,7 @@ impl Requirement {
                 name: "Google".to_string(),
                 url: "www.google.com".to_string(),
             }]),
+            source: None,
         }
     }
 }
