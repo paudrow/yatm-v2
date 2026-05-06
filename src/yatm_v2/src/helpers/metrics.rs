@@ -1,9 +1,9 @@
-use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
 use anyhow::{Context, Result};
 use askama::Template;
 use octocrab::models::issues::Issue;
 use octocrab::models::IssueState;
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::PathBuf;
 
 #[derive(Template)]
 #[template(path = "metrics_report.md", escape = "none")]
@@ -126,13 +126,29 @@ pub fn calculate_overall_metrics(
 ) -> OverallMetrics {
     let total = issues.len();
     let open = open_issues.len();
-    let open_pct = if total > 0 { (open as f64 / total as f64) * 100.0 } else { 0.0 };
+    let open_pct = if total > 0 {
+        (open as f64 / total as f64) * 100.0
+    } else {
+        0.0
+    };
     let completed = closed_completed.len();
-    let completed_pct = if total > 0 { (completed as f64 / total as f64) * 100.0 } else { 0.0 };
+    let completed_pct = if total > 0 {
+        (completed as f64 / total as f64) * 100.0
+    } else {
+        0.0
+    };
     let wont_fix = closed_wont_fix.len();
-    let wont_fix_pct = if total > 0 { (wont_fix as f64 / total as f64) * 100.0 } else { 0.0 };
+    let wont_fix_pct = if total > 0 {
+        (wont_fix as f64 / total as f64) * 100.0
+    } else {
+        0.0
+    };
     let duplicate = closed_duplicate.len();
-    let duplicate_pct = if total > 0 { (duplicate as f64 / total as f64) * 100.0 } else { 0.0 };
+    let duplicate_pct = if total > 0 {
+        (duplicate as f64 / total as f64) * 100.0
+    } else {
+        0.0
+    };
 
     OverallMetrics {
         total,
@@ -155,10 +171,7 @@ fn calculate_permutations_breakdown(
     if !permutation_keys_values.is_empty() {
         for (key, values) in permutation_keys_values {
             for value in values {
-                let label_str = crate::helpers::sanitize_label(format!(
-                    "{}: {}",
-                    key, value
-                ));
+                let label_str = crate::helpers::sanitize_label(format!("{}: {}", key, value));
                 let cnt = issues
                     .iter()
                     .filter(|i| i.labels.iter().any(|l| l.name == label_str))
@@ -175,10 +188,7 @@ fn calculate_permutations_breakdown(
         for (key, values) in permutation_keys_values {
             let mut value_breakdowns = vec![];
             for value in values {
-                let label_str = crate::helpers::sanitize_label(format!(
-                    "{}: {}",
-                    key, value
-                ));
+                let label_str = crate::helpers::sanitize_label(format!("{}: {}", key, value));
 
                 let term_issues = issues
                     .iter()
@@ -202,15 +212,22 @@ fn calculate_permutations_breakdown(
                 let term_completed = term_closed
                     .iter()
                     .filter(|i| {
-                        let is_wont_fix = i.state_reason == Some(octocrab::models::issues::IssueStateReason::NotPlanned);
-                        let is_duplicate = i.labels.iter().any(|l| l.name.to_lowercase() == "duplicate");
+                        let is_wont_fix = i.state_reason
+                            == Some(octocrab::models::issues::IssueStateReason::NotPlanned);
+                        let is_duplicate = i
+                            .labels
+                            .iter()
+                            .any(|l| l.name.to_lowercase() == "duplicate");
                         !is_wont_fix && !is_duplicate
                     })
                     .collect::<Vec<_>>();
 
                 let term_wont_fix = term_closed
                     .iter()
-                    .filter(|i| i.state_reason == Some(octocrab::models::issues::IssueStateReason::NotPlanned))
+                    .filter(|i| {
+                        i.state_reason
+                            == Some(octocrab::models::issues::IssueStateReason::NotPlanned)
+                    })
                     .collect::<Vec<_>>();
 
                 let term_duplicate = term_closed
@@ -222,20 +239,13 @@ fn calculate_permutations_breakdown(
                     })
                     .collect::<Vec<_>>();
 
-                let closed_pct = (term_closed.len() as f64
-                    / term_issues.len() as f64)
-                    * 100.0;
-                let open_pct =
-                    (term_open.len() as f64 / term_issues.len() as f64) * 100.0;
-                let completed_pct = (term_completed.len() as f64
-                    / term_issues.len() as f64)
-                    * 100.0;
-                let wont_fix_pct = (term_wont_fix.len() as f64
-                    / term_issues.len() as f64)
-                    * 100.0;
-                let duplicate_pct = (term_duplicate.len() as f64
-                    / term_issues.len() as f64)
-                    * 100.0;
+                let closed_pct = (term_closed.len() as f64 / term_issues.len() as f64) * 100.0;
+                let open_pct = (term_open.len() as f64 / term_issues.len() as f64) * 100.0;
+                let completed_pct =
+                    (term_completed.len() as f64 / term_issues.len() as f64) * 100.0;
+                let wont_fix_pct = (term_wont_fix.len() as f64 / term_issues.len() as f64) * 100.0;
+                let duplicate_pct =
+                    (term_duplicate.len() as f64 / term_issues.len() as f64) * 100.0;
 
                 let bar_width_pct = if max_term_issues > 0 {
                     (term_issues.len() as f64 / max_term_issues as f64) * 100.0
@@ -296,13 +306,11 @@ pub fn generate_report(
     permutation_keys_values: &BTreeMap<String, BTreeSet<String>>,
     report_path: &PathBuf,
 ) -> Result<()> {
-
     let permutations = calculate_permutations_breakdown(issues, permutation_keys_values);
 
     let mut pairwise_matrices = vec![];
     if !permutation_keys_values.is_empty() {
-        let keys: Vec<String> =
-            permutation_keys_values.keys().cloned().collect();
+        let keys: Vec<String> = permutation_keys_values.keys().cloned().collect();
         for i in 0..keys.len() {
             for j in (i + 1)..keys.len() {
                 let key_a = &keys[i];
@@ -325,15 +333,11 @@ pub fn generate_report(
                 let sum_row_issues: usize = values_a
                     .iter()
                     .map(|val_a| {
-                        let label_a = crate::helpers::sanitize_label(format!(
-                            "{}: {}",
-                            key_a, val_a
-                        ));
+                        let label_a =
+                            crate::helpers::sanitize_label(format!("{}: {}", key_a, val_a));
                         issues
                             .iter()
-                            .filter(|i| {
-                                i.labels.iter().any(|l| l.name == label_a)
-                            })
+                            .filter(|i| i.labels.iter().any(|l| l.name == label_a))
                             .count()
                     })
                     .sum();
@@ -342,15 +346,11 @@ pub fn generate_report(
                 let sum_col_issues: usize = values_b
                     .iter()
                     .map(|val_b| {
-                        let label_b = crate::helpers::sanitize_label(format!(
-                            "{}: {}",
-                            key_b, val_b
-                        ));
+                        let label_b =
+                            crate::helpers::sanitize_label(format!("{}: {}", key_b, val_b));
                         issues
                             .iter()
-                            .filter(|i| {
-                                i.labels.iter().any(|l| l.name == label_b)
-                            })
+                            .filter(|i| i.labels.iter().any(|l| l.name == label_b))
                             .count()
                     })
                     .sum();
@@ -358,19 +358,14 @@ pub fn generate_report(
                 let col_widths: Vec<f64> = values_b
                     .iter()
                     .map(|val_b| {
-                        let label_b = crate::helpers::sanitize_label(format!(
-                            "{}: {}",
-                            key_b, val_b
-                        ));
+                        let label_b =
+                            crate::helpers::sanitize_label(format!("{}: {}", key_b, val_b));
                         let col_issues_cnt = issues
                             .iter()
-                            .filter(|i| {
-                                i.labels.iter().any(|l| l.name == label_b)
-                            })
+                            .filter(|i| i.labels.iter().any(|l| l.name == label_b))
                             .count();
                         if sum_col_issues > 0 {
-                            (col_issues_cnt as f64 / sum_col_issues as f64)
-                                * 100.0
+                            (col_issues_cnt as f64 / sum_col_issues as f64) * 100.0
                         } else {
                             100.0 / (values_b.len() as f64)
                         }
@@ -388,36 +383,27 @@ pub fn generate_report(
 
                 let mut rows = vec![];
                 for val_a in &values_a {
-                    let label_a = crate::helpers::sanitize_label(format!(
-                        "{}: {}",
-                        key_a, val_a
-                    ));
+                    let label_a = crate::helpers::sanitize_label(format!("{}: {}", key_a, val_a));
                     let row_issues_cnt = issues
                         .iter()
                         .filter(|i| i.labels.iter().any(|l| l.name == label_a))
                         .count();
                     let row_height = if sum_row_issues > 0 {
-                        50.0 + ((row_issues_cnt as f64 / sum_row_issues as f64)
-                            * 150.0)
+                        50.0 + ((row_issues_cnt as f64 / sum_row_issues as f64) * 150.0)
                     } else {
                         50.0
                     };
 
                     let mut cells = vec![];
                     for val_b in &values_b {
-                        let label_b = crate::helpers::sanitize_label(format!(
-                            "{}: {}",
-                            key_b, val_b
-                        ));
+                        let label_b =
+                            crate::helpers::sanitize_label(format!("{}: {}", key_b, val_b));
 
                         let cell_issues = issues
                             .iter()
                             .filter(|issue| {
                                 issue.labels.iter().any(|l| l.name == label_a)
-                                    && issue
-                                        .labels
-                                        .iter()
-                                        .any(|l| l.name == label_b)
+                                    && issue.labels.iter().any(|l| l.name == label_b)
                             })
                             .collect::<Vec<_>>();
 
@@ -430,28 +416,38 @@ pub fn generate_report(
                             .filter(|issue| issue.state == IssueState::Open)
                             .collect::<Vec<_>>();
 
-                        let cell_completed = cell_closed.iter().filter(|issue| {
-                            issue.state_reason != Some(octocrab::models::issues::IssueStateReason::NotPlanned)
-                            && !issue.labels.iter().any(|l| l.name.to_lowercase() == "duplicate")
-                        }).count();
+                        let cell_completed = cell_closed
+                            .iter()
+                            .filter(|issue| {
+                                issue.state_reason
+                                    != Some(octocrab::models::issues::IssueStateReason::NotPlanned)
+                                    && !issue
+                                        .labels
+                                        .iter()
+                                        .any(|l| l.name.to_lowercase() == "duplicate")
+                            })
+                            .count();
 
-                        let cell_wont_fix = cell_closed.iter().filter(|issue| {
-                            issue.state_reason == Some(octocrab::models::issues::IssueStateReason::NotPlanned)
-                        }).count();
+                        let cell_wont_fix = cell_closed
+                            .iter()
+                            .filter(|issue| {
+                                issue.state_reason
+                                    == Some(octocrab::models::issues::IssueStateReason::NotPlanned)
+                            })
+                            .count();
 
                         let cell_duplicate = cell_closed
                             .iter()
                             .filter(|issue| {
-                                issue.labels.iter().any(|l| {
-                                    l.name.to_lowercase() == "duplicate"
-                                })
+                                issue
+                                    .labels
+                                    .iter()
+                                    .any(|l| l.name.to_lowercase() == "duplicate")
                             })
                             .count();
 
-                        let cell_total = cell_completed
-                            + cell_open.len()
-                            + cell_wont_fix
-                            + cell_duplicate;
+                        let cell_total =
+                            cell_completed + cell_open.len() + cell_wont_fix + cell_duplicate;
 
                         let cell_completed_pct = if cell_total > 0 {
                             (cell_completed as f64 / cell_total as f64) * 100.0
@@ -479,8 +475,7 @@ pub fn generate_report(
                         } else {
                             0.0
                         };
-                        let cell_lightness =
-                            100.0 - (cell_completed_ratio * 12.0);
+                        let cell_lightness = 100.0 - (cell_completed_ratio * 12.0);
 
                         cells.push(MatrixCell {
                             total_cases: cell_issues.len(),
@@ -532,7 +527,9 @@ pub fn generate_report(
         pairwise_matrices,
     };
 
-    let report_str = template.render().context("Failed to render the metrics report template")?;
+    let report_str = template
+        .render()
+        .context("Failed to render the metrics report template")?;
     std::fs::write(report_path, report_str)?;
     Ok(())
 }
@@ -619,14 +616,18 @@ mod tests {
             pairwise_matrices,
         };
 
-        let rendered = template.render().expect("Failed to render template in test");
+        let rendered = template
+            .render()
+            .expect("Failed to render template in test");
 
         assert!(rendered.contains("<table"));
         assert!(rendered.contains("</table>"));
 
         let mut rest = rendered.as_str();
         while let Some(start_idx) = rest.find("<td") {
-            let end_idx = rest[start_idx..].find("</td>").expect("Malformed <td> in output");
+            let end_idx = rest[start_idx..]
+                .find("</td>")
+                .expect("Malformed <td> in output");
             let td_content = &rest[start_idx..start_idx + end_idx];
             assert!(
                 !td_content.contains('\n'),
@@ -693,7 +694,10 @@ mod tests {
         values.insert("amd64".to_string());
         permutation_keys_values.insert("chip".to_string(), values);
 
-        let breakdowns = calculate_permutations_breakdown(&issues.iter().collect::<Vec<_>>(), &permutation_keys_values);
+        let breakdowns = calculate_permutations_breakdown(
+            &issues.iter().collect::<Vec<_>>(),
+            &permutation_keys_values,
+        );
         assert_eq!(breakdowns.len(), 0);
     }
 
@@ -713,7 +717,11 @@ mod tests {
         let issues: Vec<Issue> = vec![];
         let permutation_keys_values = BTreeMap::new();
 
-        print_overall_metrics(&metrics, &issues.iter().collect::<Vec<_>>(), &permutation_keys_values);
+        print_overall_metrics(
+            &metrics,
+            &issues.iter().collect::<Vec<_>>(),
+            &permutation_keys_values,
+        );
     }
 
     #[test]
@@ -738,11 +746,17 @@ mod tests {
 
         let permutation_keys_values = BTreeMap::new();
 
-        let result = generate_report(&issue_refs, &metrics, &permutation_keys_values, &report_path);
+        let result = generate_report(
+            &issue_refs,
+            &metrics,
+            &permutation_keys_values,
+            &report_path,
+        );
         assert!(result.is_ok());
         assert!(report_path.exists());
 
-        let report_content = std::fs::read_to_string(report_path).expect("Failed to read written report in test");
+        let report_content =
+            std::fs::read_to_string(report_path).expect("Failed to read written report in test");
         assert!(report_content.contains("# GitHub Test Case Metrics Report"));
     }
 }

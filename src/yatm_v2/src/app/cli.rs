@@ -22,8 +22,6 @@ use clap::{Parser, Subcommand};
 use octocrab::models::IssueState;
 use octocrab::params::State;
 
-
-
 // Define the main application
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -682,7 +680,7 @@ pub async fn cli() -> Result<()> {
                         })
                         .collect::<Vec<_>>();
 
-                     let closed_wont_fix = closed_issues
+                    let closed_wont_fix = closed_issues
                         .iter()
                         .copied()
                         .filter(|i| {
@@ -691,7 +689,7 @@ pub async fn cli() -> Result<()> {
                         })
                         .collect::<Vec<_>>();
 
-                     let closed_duplicate = closed_issues
+                    let closed_duplicate = closed_issues
                         .iter()
                         .copied()
                         .filter(|i| {
