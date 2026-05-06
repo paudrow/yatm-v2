@@ -263,10 +263,12 @@ fn calculate_permutations_breakdown(
                     has_duplicate: duplicate_pct > 0.0,
                 });
             }
-            permutations.push(PermutationKeyBreakdown {
-                key: key.clone(),
-                values: value_breakdowns,
-            });
+            if !value_breakdowns.is_empty() {
+                permutations.push(PermutationKeyBreakdown {
+                    key: key.clone(),
+                    values: value_breakdowns,
+                });
+            }
         }
     }
     permutations
@@ -633,5 +635,114 @@ mod tests {
             );
             rest = &rest[start_idx + end_idx + 5..];
         }
+    }
+
+    #[test]
+    fn test_calculate_overall_metrics() {
+        let issues: Vec<Issue> = vec![];
+        let issue_refs: Vec<&Issue> = issues.iter().collect();
+        let open_issues: Vec<&Issue> = vec![];
+        let closed_completed: Vec<&Issue> = vec![];
+        let closed_wont_fix: Vec<&Issue> = vec![];
+        let closed_duplicate: Vec<&Issue> = vec![];
+
+        let metrics = calculate_overall_metrics(
+            &issue_refs,
+            &open_issues,
+            &closed_completed,
+            &closed_wont_fix,
+            &closed_duplicate,
+        );
+
+        assert_eq!(metrics.total, 0);
+        assert_eq!(metrics.open, 0);
+        assert_eq!(metrics.open_pct, 0.0);
+        assert_eq!(metrics.completed, 0);
+        assert_eq!(metrics.completed_pct, 0.0);
+        assert_eq!(metrics.wont_fix, 0);
+        assert_eq!(metrics.wont_fix_pct, 0.0);
+        assert_eq!(metrics.duplicate, 0);
+        assert_eq!(metrics.duplicate_pct, 0.0);
+    }
+
+    #[test]
+    fn test_overall_metrics_getters() {
+        let metrics = OverallMetrics {
+            total: 10,
+            open: 4,
+            open_pct: 40.0,
+            completed: 3,
+            completed_pct: 30.0,
+            wont_fix: 2,
+            wont_fix_pct: 20.0,
+            duplicate: 1,
+            duplicate_pct: 10.0,
+        };
+
+        assert_eq!(metrics.open_pct_str(), "40.00");
+        assert_eq!(metrics.completed_pct_str(), "30.00");
+        assert_eq!(metrics.wont_fix_pct_str(), "20.00");
+        assert_eq!(metrics.duplicate_pct_str(), "10.00");
+    }
+
+    #[test]
+    fn test_calculate_permutations_breakdown() {
+        let issues: Vec<Issue> = vec![];
+        let mut permutation_keys_values = BTreeMap::new();
+        let mut values = BTreeSet::new();
+        values.insert("amd64".to_string());
+        permutation_keys_values.insert("chip".to_string(), values);
+
+        let breakdowns = calculate_permutations_breakdown(&issues.iter().collect::<Vec<_>>(), &permutation_keys_values);
+        assert_eq!(breakdowns.len(), 0);
+    }
+
+    #[test]
+    fn test_print_overall_metrics_rendering() {
+        let metrics = OverallMetrics {
+            total: 0,
+            open: 0,
+            open_pct: 0.0,
+            completed: 0,
+            completed_pct: 0.0,
+            wont_fix: 0,
+            wont_fix_pct: 0.0,
+            duplicate: 0,
+            duplicate_pct: 0.0,
+        };
+        let issues: Vec<Issue> = vec![];
+        let permutation_keys_values = BTreeMap::new();
+
+        print_overall_metrics(&metrics, &issues.iter().collect::<Vec<_>>(), &permutation_keys_values);
+    }
+
+    #[test]
+    fn test_generate_report_file_writing() {
+        let tmp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let report_path = tmp_dir.path().join("metrics_report.md");
+
+        let issues: Vec<Issue> = vec![];
+        let issue_refs: Vec<&Issue> = issues.iter().collect();
+        let open_issues: Vec<&Issue> = vec![];
+        let closed_completed: Vec<&Issue> = vec![];
+        let closed_wont_fix: Vec<&Issue> = vec![];
+        let closed_duplicate: Vec<&Issue> = vec![];
+
+        let metrics = calculate_overall_metrics(
+            &issue_refs,
+            &open_issues,
+            &closed_completed,
+            &closed_wont_fix,
+            &closed_duplicate,
+        );
+
+        let permutation_keys_values = BTreeMap::new();
+
+        let result = generate_report(&issue_refs, &metrics, &permutation_keys_values, &report_path);
+        assert!(result.is_ok());
+        assert!(report_path.exists());
+
+        let report_content = std::fs::read_to_string(report_path).expect("Failed to read written report in test");
+        assert!(report_content.contains("# GitHub Test Case Metrics Report"));
     }
 }
