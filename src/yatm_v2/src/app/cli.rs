@@ -146,6 +146,9 @@ enum GithubSubcommands {
         /// The label to analyze
         #[clap(short, long)]
         label: Option<String>,
+        /// Generates a visual pairwise permutation matrix report to a file
+        #[clap(short, long)]
+        report: Option<PathBuf>,
     },
     /// Preview the test cases in markdown
     Preview {
@@ -628,7 +631,11 @@ pub async fn cli() -> Result<()> {
                     output_path
                 ))?;
             }
-            GithubSubcommands::Metrics { config_path, label } => {
+            GithubSubcommands::Metrics {
+                config_path,
+                label,
+                report,
+            } => {
                 let config = load_config(&config_path)?;
                 let project_version = project_version_to_label(&config.workspace_version);
 
@@ -660,20 +667,31 @@ pub async fn cli() -> Result<()> {
                     let closed_completed = closed_issues
                         .iter()
                         .filter(|i| {
-                            let is_wont_fix = i.state_reason == Some(octocrab::models::issues::IssueStateReason::NotPlanned);
-                            let is_duplicate = i.labels.iter().any(|l| l.name.to_lowercase() == "duplicate");
+                            let is_wont_fix = i.state_reason
+                                == Some(octocrab::models::issues::IssueStateReason::NotPlanned);
+                            let is_duplicate = i
+                                .labels
+                                .iter()
+                                .any(|l| l.name.to_lowercase() == "duplicate");
                             !is_wont_fix && !is_duplicate
                         })
                         .collect::<Vec<_>>();
 
                     let closed_wont_fix = closed_issues
                         .iter()
-                        .filter(|i| i.state_reason == Some(octocrab::models::issues::IssueStateReason::NotPlanned))
+                        .filter(|i| {
+                            i.state_reason
+                                == Some(octocrab::models::issues::IssueStateReason::NotPlanned)
+                        })
                         .collect::<Vec<_>>();
 
                     let closed_duplicate = closed_issues
                         .iter()
-                        .filter(|i| i.labels.iter().any(|l| l.name.to_lowercase() == "duplicate"))
+                        .filter(|i| {
+                            i.labels
+                                .iter()
+                                .any(|l| l.name.to_lowercase() == "duplicate")
+                        })
                         .collect::<Vec<_>>();
 
                     let open_issues = issues
@@ -695,10 +713,16 @@ pub async fn cli() -> Result<()> {
                     );
 
                     let test_cases = get_test_cases(&config)?;
-                    let mut permutation_keys_values: std::collections::BTreeMap<String, std::collections::BTreeSet<String>> = std::collections::BTreeMap::new();
+                    let mut permutation_keys_values: std::collections::BTreeMap<
+                        String,
+                        std::collections::BTreeSet<String>,
+                    > = std::collections::BTreeMap::new();
                     for tc in &test_cases {
                         for (k, v) in &tc.selected_permutation {
-                            permutation_keys_values.entry(k.clone()).or_default().insert(v.clone());
+                            permutation_keys_values
+                                .entry(k.clone())
+                                .or_default()
+                                .insert(v.clone());
                         }
                     }
 
@@ -708,7 +732,8 @@ pub async fn cli() -> Result<()> {
                         for (key, values) in &permutation_keys_values {
                             println!("{}:", key);
                             for value in values {
-                                let label_str = crate::helpers::sanitize_label(format!("{}: {}", key, value));
+                                let label_str =
+                                    crate::helpers::sanitize_label(format!("{}: {}", key, value));
 
                                 let term_issues = issues
                                     .iter()
@@ -745,7 +770,11 @@ pub async fn cli() -> Result<()> {
 
                                 let term_duplicate = term_closed
                                     .iter()
-                                    .filter(|i| i.labels.iter().any(|l| l.name.to_lowercase() == "duplicate"))
+                                    .filter(|i| {
+                                        i.labels
+                                            .iter()
+                                            .any(|l| l.name.to_lowercase() == "duplicate")
+                                    })
                                     .collect::<Vec<_>>();
 
                                 println!(
@@ -765,6 +794,384 @@ pub async fn cli() -> Result<()> {
                                 );
                             }
                         }
+                    }
+
+                    if let Some(report_path) = &report {
+                        let mut report_str = String::new();
+                        report_str.push_str("# GitHub Test Case Metrics Report\n\n");
+                        report_str.push_str("## Overall Metrics\n");
+                        report_str.push_str("----------------------------------\n");
+                        report_str.push_str(&format!("- **Total Issues**: {}\n", issues.len()));
+                        report_str.push_str(&format!(
+                            "- **Open**: {} ({:.2}%)\n",
+                            open_issues.len(),
+                            (open_issues.len() as f64 / issues.len() as f64) * 100.0
+                        ));
+                        report_str.push_str(&format!(
+                            "- **Closed Completed**: {} ({:.2}%)\n",
+                            closed_completed.len(),
+                            (closed_completed.len() as f64 / issues.len() as f64) * 100.0
+                        ));
+                        report_str.push_str(&format!(
+                            "- **Closed Won't Fix**: {} ({:.2}%)\n",
+                            closed_wont_fix.len(),
+                            (closed_wont_fix.len() as f64 / issues.len() as f64) * 100.0
+                        ));
+                        report_str.push_str(&format!(
+                            "- **Closed Duplicate**: {} ({:.2}%)\n\n",
+                            closed_duplicate.len(),
+                            (closed_duplicate.len() as f64 / issues.len() as f64) * 100.0
+                        ));
+
+                        let mut max_term_issues = 0;
+                        if !permutation_keys_values.is_empty() {
+                            for (key, values) in &permutation_keys_values {
+                                for value in values {
+                                    let label_str = crate::helpers::sanitize_label(format!(
+                                        "{}: {}",
+                                        key, value
+                                    ));
+                                    let cnt = issues
+                                        .iter()
+                                        .filter(|i| i.labels.iter().any(|l| l.name == label_str))
+                                        .count();
+                                    if cnt > max_term_issues {
+                                        max_term_issues = cnt;
+                                    }
+                                }
+                            }
+                        }
+
+                        if !permutation_keys_values.is_empty() {
+                            report_str.push_str("## Progress by Permutation Key/Value\n");
+                            report_str.push_str("----------------------------------\n");
+                            for (key, values) in &permutation_keys_values {
+                                report_str.push_str(&format!("### {}\n", key));
+                                for value in values {
+                                    let label_str = crate::helpers::sanitize_label(format!(
+                                        "{}: {}",
+                                        key, value
+                                    ));
+
+                                    let term_issues = issues
+                                        .iter()
+                                        .filter(|i| i.labels.iter().any(|l| l.name == label_str))
+                                        .collect::<Vec<_>>();
+
+                                    if term_issues.is_empty() {
+                                        continue;
+                                    }
+
+                                    let term_closed = term_issues
+                                        .iter()
+                                        .filter(|i| i.state == IssueState::Closed)
+                                        .collect::<Vec<_>>();
+
+                                    let term_open = term_issues
+                                        .iter()
+                                        .filter(|i| i.state == IssueState::Open)
+                                        .collect::<Vec<_>>();
+
+                                    let term_completed = term_closed
+                                        .iter()
+                                        .filter(|i| {
+                                            let is_wont_fix = i.state_reason == Some(octocrab::models::issues::IssueStateReason::NotPlanned);
+                                            let is_duplicate = i.labels.iter().any(|l| l.name.to_lowercase() == "duplicate");
+                                            !is_wont_fix && !is_duplicate
+                                        })
+                                        .collect::<Vec<_>>();
+
+                                    let term_wont_fix = term_closed
+                                        .iter()
+                                        .filter(|i| i.state_reason == Some(octocrab::models::issues::IssueStateReason::NotPlanned))
+                                        .collect::<Vec<_>>();
+
+                                    let term_duplicate = term_closed
+                                        .iter()
+                                        .filter(|i| {
+                                            i.labels
+                                                .iter()
+                                                .any(|l| l.name.to_lowercase() == "duplicate")
+                                        })
+                                        .collect::<Vec<_>>();
+
+                                    let closed_pct = (term_closed.len() as f64
+                                        / term_issues.len() as f64)
+                                        * 100.0;
+                                    let open_pct =
+                                        (term_open.len() as f64 / term_issues.len() as f64) * 100.0;
+                                    let completed_pct = (term_completed.len() as f64
+                                        / term_issues.len() as f64)
+                                        * 100.0;
+                                    let wont_fix_pct = (term_wont_fix.len() as f64
+                                        / term_issues.len() as f64)
+                                        * 100.0;
+                                    let duplicate_pct = (term_duplicate.len() as f64
+                                        / term_issues.len() as f64)
+                                        * 100.0;
+
+                                    report_str.push_str(&format!(
+                                        "- **{}**: {}/{} closed ({:.2}%) -- Open: {} ({:.2}%), Closed Completed: {} ({:.2}%), Won't Fix: {} ({:.2}%), Duplicate: {} ({:.2}%)\n",
+                                        value,
+                                        term_closed.len(),
+                                        term_issues.len(),
+                                        closed_pct,
+                                        term_open.len(),
+                                        open_pct,
+                                        term_completed.len(),
+                                        completed_pct,
+                                        term_wont_fix.len(),
+                                        wont_fix_pct,
+                                        term_duplicate.len(),
+                                        duplicate_pct
+                                    ));
+
+                                    // HTML Progress Bar
+                                    let bar_width_pct = if max_term_issues > 0 {
+                                        (term_issues.len() as f64 / max_term_issues as f64) * 100.0
+                                    } else {
+                                        0.0
+                                    };
+
+                                    report_str.push_str(&format!("  <div style=\"width: {:.2}%; background-color: #cbd5e1; border-radius: 4px; overflow: hidden; display: flex; border: 1px solid #cbd5e1; margin: 4px 0 12px 0;\">\n", bar_width_pct));
+                                    if completed_pct > 0.0 {
+                                        report_str.push_str(&format!("    <div style=\"width: {:.2}%; background-color: #2da44e; height: 14px; display: inline-block;\" title=\"Closed Completed: {} cases ({:.2}%)\"></div>\n", completed_pct, term_completed.len(), completed_pct));
+                                    }
+                                    if open_pct > 0.0 {
+                                        report_str.push_str(&format!("    <div style=\"width: {:.2}%; background-color: #ffffff; border-left: 1px solid #ddd; border-right: 1px solid #ddd; height: 14px; display: inline-block;\" title=\"Open: {} cases ({:.2}%)\"></div>\n", open_pct, term_open.len(), open_pct));
+                                    }
+                                    if wont_fix_pct > 0.0 {
+                                        report_str.push_str(&format!("    <div style=\"width: {:.2}%; background-color: darkgray; height: 14px; display: inline-block;\" title=\"Won't Fix: {} cases ({:.2}%)\"></div>\n", wont_fix_pct, term_wont_fix.len(), wont_fix_pct));
+                                    }
+                                    if duplicate_pct > 0.0 {
+                                        report_str.push_str(&format!("    <div style=\"width: {:.2}%; background-color: #7c3aed; height: 14px; display: inline-block;\" title=\"Duplicate: {} cases ({:.2}%)\"></div>\n", duplicate_pct, term_duplicate.len(), duplicate_pct));
+                                    }
+                                    report_str.push_str("  </div>\n");
+                                }
+                            }
+
+                            report_str.push_str("\n## Pairwise Permutation Progress Matrices\n");
+                            report_str.push_str("----------------------------------\n");
+                            let keys: Vec<String> =
+                                permutation_keys_values.keys().cloned().collect();
+                            for i in 0..keys.len() {
+                                for j in (i + 1)..keys.len() {
+                                    let key_a = &keys[i];
+                                    let key_b = &keys[j];
+
+                                    let values_a: Vec<String> = permutation_keys_values
+                                        .get(key_a)
+                                        .unwrap()
+                                        .iter()
+                                        .cloned()
+                                        .collect();
+                                    let values_b: Vec<String> = permutation_keys_values
+                                        .get(key_b)
+                                        .unwrap()
+                                        .iter()
+                                        .cloned()
+                                        .collect();
+
+                                    // Calculate row total issues sum
+                                    let sum_row_issues: usize = values_a
+                                        .iter()
+                                        .map(|val_a| {
+                                            let label_a = crate::helpers::sanitize_label(format!(
+                                                "{}: {}",
+                                                key_a, val_a
+                                            ));
+                                            issues
+                                                .iter()
+                                                .filter(|i| {
+                                                    i.labels.iter().any(|l| l.name == label_a)
+                                                })
+                                                .count()
+                                        })
+                                        .sum();
+
+                                    // Calculate column total issues sum and individual column widths
+                                    let sum_col_issues: usize = values_b
+                                        .iter()
+                                        .map(|val_b| {
+                                            let label_b = crate::helpers::sanitize_label(format!(
+                                                "{}: {}",
+                                                key_b, val_b
+                                            ));
+                                            issues
+                                                .iter()
+                                                .filter(|i| {
+                                                    i.labels.iter().any(|l| l.name == label_b)
+                                                })
+                                                .count()
+                                        })
+                                        .sum();
+
+                                    let col_widths: Vec<f64> = values_b
+                                        .iter()
+                                        .map(|val_b| {
+                                            let label_b = crate::helpers::sanitize_label(format!(
+                                                "{}: {}",
+                                                key_b, val_b
+                                            ));
+                                            let col_issues_cnt = issues
+                                                .iter()
+                                                .filter(|i| {
+                                                    i.labels.iter().any(|l| l.name == label_b)
+                                                })
+                                                .count();
+                                            if sum_col_issues > 0 {
+                                                (col_issues_cnt as f64 / sum_col_issues as f64)
+                                                    * 100.0
+                                            } else {
+                                                100.0 / (values_b.len() as f64)
+                                            }
+                                        })
+                                        .collect();
+
+                                    report_str.push_str(&format!("### {} vs {}\n\n", key_a, key_b));
+                                    report_str.push_str("<table style=\"width: 100%; border-collapse: collapse;\">\n  <thead>\n    <tr>\n");
+                                    report_str.push_str(&format!("      <th style=\"border: 1px solid #ddd; padding: 8px; background-color: #f8fafc;\">{} \\ {}</th>\n", key_a, key_b));
+                                    for (val_b, col_w) in values_b.iter().zip(&col_widths) {
+                                        report_str.push_str(&format!("      <th style=\"width: {:.2}%; border: 1px solid #ddd; padding: 8px; background-color: #f8fafc;\">{}</th>\n", col_w, val_b));
+                                    }
+                                    report_str.push_str("    </tr>\n  </thead>\n  <tbody>\n");
+
+                                    for val_a in &values_a {
+                                        let label_a = crate::helpers::sanitize_label(format!(
+                                            "{}: {}",
+                                            key_a, val_a
+                                        ));
+                                        let row_issues_cnt = issues
+                                            .iter()
+                                            .filter(|i| i.labels.iter().any(|l| l.name == label_a))
+                                            .count();
+                                        let row_height = if sum_row_issues > 0 {
+                                            50.0 + ((row_issues_cnt as f64 / sum_row_issues as f64)
+                                                * 150.0)
+                                        } else {
+                                            50.0
+                                        };
+
+                                        report_str.push_str(&format!(
+                                            "    <tr style=\"height: {:.0}px;\">\n",
+                                            row_height
+                                        ));
+                                        report_str.push_str(&format!("      <td style=\"border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #f8fafc;\">{}</td>\n", val_a));
+                                        for val_b in &values_b {
+                                            let label_b = crate::helpers::sanitize_label(format!(
+                                                "{}: {}",
+                                                key_b, val_b
+                                            ));
+
+                                            let cell_issues = issues
+                                                .iter()
+                                                .filter(|issue| {
+                                                    issue.labels.iter().any(|l| l.name == label_a)
+                                                        && issue
+                                                            .labels
+                                                            .iter()
+                                                            .any(|l| l.name == label_b)
+                                                })
+                                                .collect::<Vec<_>>();
+
+                                            let cell_closed = cell_issues
+                                                .iter()
+                                                .filter(|issue| issue.state == IssueState::Closed)
+                                                .collect::<Vec<_>>();
+                                            let cell_open = cell_issues
+                                                .iter()
+                                                .filter(|issue| issue.state == IssueState::Open)
+                                                .collect::<Vec<_>>();
+
+                                            let cell_completed = cell_closed.iter().filter(|issue| {
+                                                issue.state_reason != Some(octocrab::models::issues::IssueStateReason::NotPlanned)
+                                                && !issue.labels.iter().any(|l| l.name.to_lowercase() == "duplicate")
+                                            }).count();
+
+                                            let cell_wont_fix = cell_closed.iter().filter(|issue| {
+                                                issue.state_reason == Some(octocrab::models::issues::IssueStateReason::NotPlanned)
+                                            }).count();
+
+                                            let cell_duplicate = cell_closed
+                                                .iter()
+                                                .filter(|issue| {
+                                                    issue.labels.iter().any(|l| {
+                                                        l.name.to_lowercase() == "duplicate"
+                                                    })
+                                                })
+                                                .count();
+
+                                            let cell_total = cell_completed
+                                                + cell_open.len()
+                                                + cell_wont_fix
+                                                + cell_duplicate;
+
+                                            let cell_completed_pct = if cell_total > 0 {
+                                                (cell_completed as f64 / cell_total as f64) * 100.0
+                                            } else {
+                                                0.0
+                                            };
+                                            let cell_open_pct = if cell_total > 0 {
+                                                (cell_open.len() as f64 / cell_total as f64) * 100.0
+                                            } else {
+                                                0.0
+                                            };
+                                            let cell_wont_fix_pct = if cell_total > 0 {
+                                                (cell_wont_fix as f64 / cell_total as f64) * 100.0
+                                            } else {
+                                                0.0
+                                            };
+                                            let cell_duplicate_pct = if cell_total > 0 {
+                                                (cell_duplicate as f64 / cell_total as f64) * 100.0
+                                            } else {
+                                                0.0
+                                            };
+
+                                            let mut mini_bar_str = String::new();
+                                            if cell_total > 0 {
+                                                mini_bar_str.push_str("        <div style=\"width: 100%; min-width: 80px; background-color: #cbd5e1; border-radius: 2px; overflow: hidden; display: flex; border: 1px solid #cbd5e1; margin: 2px 0 4px 0;\">\n");
+                                                if cell_completed_pct > 0.0 {
+                                                    mini_bar_str.push_str(&format!("          <div style=\"width: {:.2}%; background-color: #2da44e; height: 10px;\" title=\"Closed Completed: {} cases ({:.1}%)\"></div>\n", cell_completed_pct, cell_completed, cell_completed_pct));
+                                                }
+                                                if cell_open_pct > 0.0 {
+                                                    mini_bar_str.push_str(&format!("          <div style=\"width: {:.2}%; background-color: #ffffff; border-left: 1px solid #ddd; border-right: 1px solid #ddd; height: 10px;\" title=\"Open: {} cases ({:.1}%)\"></div>\n", cell_open_pct, cell_open.len(), cell_open_pct));
+                                                }
+                                                if cell_wont_fix_pct > 0.0 {
+                                                    mini_bar_str.push_str(&format!("          <div style=\"width: {:.2}%; background-color: darkgray; height: 10px;\" title=\"Won't Fix: {} cases ({:.1}%)\"></div>\n", cell_wont_fix_pct, cell_wont_fix, cell_wont_fix_pct));
+                                                }
+                                                if cell_duplicate_pct > 0.0 {
+                                                    mini_bar_str.push_str(&format!("          <div style=\"width: {:.2}%; background-color: #7c3aed; height: 10px;\" title=\"Duplicate: {} cases ({:.1}%)\"></div>\n", cell_duplicate_pct, cell_duplicate, cell_duplicate_pct));
+                                                }
+                                                mini_bar_str.push_str("        </div>\n");
+                                            }
+
+                                            let cell_completed_ratio = if cell_total > 0 {
+                                                cell_completed as f64 / cell_total as f64
+                                            } else {
+                                                0.0
+                                            };
+                                            let cell_lightness =
+                                                100.0 - (cell_completed_ratio * 12.0);
+                                            let mini_bar_line = if cell_total > 0 {
+                                                format!("{}\n", mini_bar_str.trim_end())
+                                            } else {
+                                                "".to_string()
+                                            };
+
+                                            report_str.push_str(&format!(
+                                                "      <td style=\"background-color: hsl(140, 70%, {:.1}%); color: #111; font-weight: 500; border: 1px solid #ddd; padding: 8px; text-align: center; vertical-align: middle;\">{}        Cases: {}<br>\n        Completed: {}/{} ({:.1}%)\n      </td>\n",
+                                                cell_lightness, mini_bar_line, cell_issues.len(), cell_completed, cell_total, cell_completed_pct
+                                            ));
+                                        }
+                                        report_str.push_str("    </tr>\n");
+                                    }
+                                    report_str.push_str("  </tbody>\n</table>\n\n");
+                                }
+                            }
+                        }
+
+                        std::fs::write(report_path, report_str)?;
+                        println!("Report generated successfully to {:?}", report_path);
                     }
                 }
             }
