@@ -585,3 +585,104 @@ pub fn generate_report(
     std::fs::write(report_path, report_str)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use octocrab::models::issues::Issue;
+
+    #[test]
+    fn test_generate_report_tables_no_cellular_newlines() {
+        let issues: Vec<Issue> = vec![];
+        let mut permutation_keys_values = BTreeMap::new();
+        let mut values = BTreeSet::new();
+        values.insert("amd64".to_string());
+        permutation_keys_values.insert("chip".to_string(), values);
+
+        let mut os_values = BTreeSet::new();
+        os_values.insert("ubuntu".to_string());
+        permutation_keys_values.insert("os".to_string(), os_values);
+
+        let issue_refs: Vec<&Issue> = issues.iter().collect();
+        let open_issues: Vec<&Issue> = vec![];
+        let closed_completed: Vec<&Issue> = vec![];
+        let closed_wont_fix: Vec<&Issue> = vec![];
+        let closed_duplicate: Vec<&Issue> = vec![];
+
+        let metrics = calculate_overall_metrics(
+            &issue_refs,
+            &open_issues,
+            &closed_completed,
+            &closed_wont_fix,
+            &closed_duplicate,
+        );
+
+        let permutations = vec![];
+        let mut pairwise_matrices = vec![];
+
+        let headers = vec![MatrixHeader {
+            value: "ubuntu".to_string(),
+            width_pct: "100".to_string(),
+        }];
+        let cells = vec![MatrixCell {
+            total_cases: 0,
+            completed: 0,
+            total_valid: 0,
+            completed_pct: "0.0".to_string(),
+            open: 0,
+            open_pct: "0.0".to_string(),
+            wont_fix: 0,
+            wont_fix_pct: "0.0".to_string(),
+            duplicate: 0,
+            duplicate_pct: "0.0".to_string(),
+            has_mini_bar: false,
+            has_completed: false,
+            has_open: false,
+            has_wont_fix: false,
+            has_duplicate: false,
+            lightness: "100.0".to_string(),
+        }];
+        let rows = vec![MatrixRow {
+            val_a: "amd64".to_string(),
+            height: "76".to_string(),
+            cells,
+        }];
+        pairwise_matrices.push(PairwiseMatrix {
+            key_a: "chip".to_string(),
+            key_b: "os".to_string(),
+            headers,
+            rows,
+        });
+
+        let template = MetricsReportTemplate {
+            total_issues: metrics.total,
+            open_count: metrics.open,
+            open_pct: format!("{:.2}", metrics.open_pct),
+            completed_count: metrics.completed,
+            completed_pct: format!("{:.2}", metrics.completed_pct),
+            wont_fix_count: metrics.wont_fix,
+            wont_fix_pct: format!("{:.2}", metrics.wont_fix_pct),
+            duplicate_count: metrics.duplicate,
+            duplicate_pct: format!("{:.2}", metrics.duplicate_pct),
+            permutations,
+            pairwise_matrices,
+        };
+
+        let rendered = template.render().expect("Failed to render template in test");
+
+        assert!(rendered.contains("<table"));
+        assert!(rendered.contains("</table>"));
+
+        let mut rest = rendered.as_str();
+        while let Some(start_idx) = rest.find("<td") {
+            let end_idx = rest[start_idx..].find("</td>").expect("Malformed <td> in output");
+            let td_content = &rest[start_idx..start_idx + end_idx];
+            assert!(
+                !td_content.contains('\n'),
+                "Found newline inside cell content: {:?}",
+                td_content
+            );
+            rest = &rest[start_idx + end_idx + 5..];
+        }
+    }
+}
