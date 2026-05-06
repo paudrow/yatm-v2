@@ -83,24 +83,149 @@ struct MatrixCell {
     lightness: String,
 }
 
-pub fn generate_report(
+pub struct OverallMetrics {
+    pub total: usize,
+    pub open: usize,
+    pub open_pct: f64,
+    pub completed: usize,
+    pub completed_pct: f64,
+    pub wont_fix: usize,
+    pub wont_fix_pct: f64,
+    pub duplicate: usize,
+    pub duplicate_pct: f64,
+}
+
+pub fn calculate_overall_metrics(
     issues: &[&Issue],
     open_issues: &[&Issue],
     closed_completed: &[&Issue],
     closed_wont_fix: &[&Issue],
     closed_duplicate: &[&Issue],
+) -> OverallMetrics {
+    let total = issues.len();
+    let open = open_issues.len();
+    let open_pct = if total > 0 { (open as f64 / total as f64) * 100.0 } else { 0.0 };
+    let completed = closed_completed.len();
+    let completed_pct = if total > 0 { (completed as f64 / total as f64) * 100.0 } else { 0.0 };
+    let wont_fix = closed_wont_fix.len();
+    let wont_fix_pct = if total > 0 { (wont_fix as f64 / total as f64) * 100.0 } else { 0.0 };
+    let duplicate = closed_duplicate.len();
+    let duplicate_pct = if total > 0 { (duplicate as f64 / total as f64) * 100.0 } else { 0.0 };
+
+    OverallMetrics {
+        total,
+        open,
+        open_pct,
+        completed,
+        completed_pct,
+        wont_fix,
+        wont_fix_pct,
+        duplicate,
+        duplicate_pct,
+    }
+}
+
+pub fn print_overall_metrics(
+    metrics: &OverallMetrics,
+    issues: &[&Issue],
+    permutation_keys_values: &BTreeMap<String, BTreeSet<String>>,
+) {
+    println!(
+        "Overall Metrics:\n----------------------------------\nTotal Issues: {}\nOpen: {} ({:.2}%)\nClosed Completed: {} ({:.2}%)\nClosed Won't Fix: {} ({:.2}%)\nClosed Duplicate: {} ({:.2}%)",
+        metrics.total,
+        metrics.open,
+        metrics.open_pct,
+        metrics.completed,
+        metrics.completed_pct,
+        metrics.wont_fix,
+        metrics.wont_fix_pct,
+        metrics.duplicate,
+        metrics.duplicate_pct
+    );
+
+    if !permutation_keys_values.is_empty() {
+        println!("\nBreakdown by Permutation Key/Value:");
+        println!("----------------------------------");
+        for (key, values) in permutation_keys_values {
+            println!("{}:", key);
+            for value in values {
+                let label_str =
+                    crate::helpers::sanitize_label(format!("{}: {}", key, value));
+
+                let term_issues = issues
+                    .iter()
+                    .copied()
+                    .filter(|i| i.labels.iter().any(|l| l.name == label_str))
+                    .collect::<Vec<_>>();
+
+                if term_issues.is_empty() {
+                    continue;
+                }
+
+                let term_closed = term_issues
+                    .iter()
+                    .copied()
+                    .filter(|i| i.state == IssueState::Closed)
+                    .collect::<Vec<_>>();
+
+                let term_open = term_issues
+                    .iter()
+                    .copied()
+                    .filter(|i| i.state == IssueState::Open)
+                    .collect::<Vec<_>>();
+
+                let term_completed = term_closed
+                    .iter()
+                    .copied()
+                    .filter(|i| {
+                        let is_wont_fix = i.state_reason == Some(octocrab::models::issues::IssueStateReason::NotPlanned);
+                        let is_duplicate = i.labels.iter().any(|l| l.name.to_lowercase() == "duplicate");
+                        !is_wont_fix && !is_duplicate
+                    })
+                    .collect::<Vec<_>>();
+
+                let term_wont_fix = term_closed
+                    .iter()
+                    .copied()
+                    .filter(|i| i.state_reason == Some(octocrab::models::issues::IssueStateReason::NotPlanned))
+                    .collect::<Vec<_>>();
+
+                let term_duplicate = term_closed
+                    .iter()
+                    .copied()
+                    .filter(|i| {
+                        i.labels
+                            .iter()
+                            .any(|l| l.name.to_lowercase() == "duplicate")
+                    })
+                    .collect::<Vec<_>>();
+
+                println!(
+                    "  - {}: {}/{} closed ({:.2}%) -- Open: {} ({:.2}%), Closed Completed: {} ({:.2}%), Won't Fix: {} ({:.2}%), Duplicate: {} ({:.2}%)",
+                    value,
+                    term_closed.len(),
+                    term_issues.len(),
+                    (term_closed.len() as f64 / term_issues.len() as f64) * 100.0,
+                    term_open.len(),
+                    (term_open.len() as f64 / term_issues.len() as f64) * 100.0,
+                    term_completed.len(),
+                    (term_completed.len() as f64 / term_issues.len() as f64) * 100.0,
+                    term_wont_fix.len(),
+                    (term_wont_fix.len() as f64 / term_issues.len() as f64) * 100.0,
+                    term_duplicate.len(),
+                    (term_duplicate.len() as f64 / term_issues.len() as f64) * 100.0
+                );
+            }
+        }
+    }
+}
+
+pub fn generate_report(
+    issues: &[&Issue],
+    metrics: &OverallMetrics,
     permutation_keys_values: &BTreeMap<String, BTreeSet<String>>,
     report_path: &PathBuf,
 ) -> Result<()> {
-    let total_issues = issues.len();
-    let open_count = open_issues.len();
-    let open_pct = format!("{:.2}", (open_issues.len() as f64 / issues.len() as f64) * 100.0);
-    let completed_count = closed_completed.len();
-    let completed_pct = format!("{:.2}", (closed_completed.len() as f64 / issues.len() as f64) * 100.0);
-    let wont_fix_count = closed_wont_fix.len();
-    let wont_fix_pct = format!("{:.2}", (closed_wont_fix.len() as f64 / issues.len() as f64) * 100.0);
-    let duplicate_count = closed_duplicate.len();
-    let duplicate_pct = format!("{:.2}", (closed_duplicate.len() as f64 / issues.len() as f64) * 100.0);
 
     let mut max_term_issues = 0;
     if !permutation_keys_values.is_empty() {
@@ -443,15 +568,15 @@ pub fn generate_report(
     }
 
     let template = MetricsReportTemplate {
-        total_issues,
-        open_count,
-        open_pct,
-        completed_count,
-        completed_pct,
-        wont_fix_count,
-        wont_fix_pct,
-        duplicate_count,
-        duplicate_pct,
+        total_issues: metrics.total,
+        open_count: metrics.open,
+        open_pct: format!("{:.2}", metrics.open_pct),
+        completed_count: metrics.completed,
+        completed_pct: format!("{:.2}", metrics.completed_pct),
+        wont_fix_count: metrics.wont_fix,
+        wont_fix_pct: format!("{:.2}", metrics.wont_fix_pct),
+        duplicate_count: metrics.duplicate,
+        duplicate_pct: format!("{:.2}", metrics.duplicate_pct),
         permutations,
         pairwise_matrices,
     };

@@ -707,19 +707,13 @@ pub async fn cli() -> Result<()> {
                         .filter(|i| i.state == IssueState::Open)
                         .collect::<Vec<_>>();
 
-                    println!(
-                        "Overall Metrics:\n----------------------------------\nTotal Issues: {}\nOpen: {} ({:.2}%)\nClosed Completed: {} ({:.2}%)\nClosed Won't Fix: {} ({:.2}%)\nClosed Duplicate: {} ({:.2}%)",
-                        issues.len(),
-                        open_issues.len(),
-                        (open_issues.len() as f64 / issues.len() as f64) * 100.0,
-                        closed_completed.len(),
-                        (closed_completed.len() as f64 / issues.len() as f64) * 100.0,
-                        closed_wont_fix.len(),
-                        (closed_wont_fix.len() as f64 / issues.len() as f64) * 100.0,
-                        closed_duplicate.len(),
-                        (closed_duplicate.len() as f64 / issues.len() as f64) * 100.0
+                    let overall_metrics = crate::helpers::metrics::calculate_overall_metrics(
+                        &issues,
+                        &open_issues,
+                        &closed_completed,
+                        &closed_wont_fix,
+                        &closed_duplicate,
                     );
-
                     let test_cases = get_test_cases(&config)?;
                     let mut permutation_keys_values: std::collections::BTreeMap<
                         String,
@@ -734,85 +728,21 @@ pub async fn cli() -> Result<()> {
                         }
                     }
 
-                    if !permutation_keys_values.is_empty() {
-                        println!("\nBreakdown by Permutation Key/Value:");
-                        println!("----------------------------------");
-                        for (key, values) in &permutation_keys_values {
-                            println!("{}:", key);
-                            for value in values {
-                                let label_str =
-                                    crate::helpers::sanitize_label(format!("{}: {}", key, value));
+                    crate::helpers::metrics::print_overall_metrics(
+                        &overall_metrics,
+                        &issues,
+                        &permutation_keys_values,
+                    );
 
-                                let term_issues = issues
-                                    .iter()
-                                    .filter(|i| i.labels.iter().any(|l| l.name == label_str))
-                                    .collect::<Vec<_>>();
-
-                                if term_issues.is_empty() {
-                                    continue;
-                                }
-
-                                let term_closed = term_issues
-                                    .iter()
-                                    .filter(|i| i.state == IssueState::Closed)
-                                    .collect::<Vec<_>>();
-
-                                let term_open = term_issues
-                                    .iter()
-                                    .filter(|i| i.state == IssueState::Open)
-                                    .collect::<Vec<_>>();
-
-                                let term_completed = term_closed
-                                    .iter()
-                                    .filter(|i| {
-                                        let is_wont_fix = i.state_reason == Some(octocrab::models::issues::IssueStateReason::NotPlanned);
-                                        let is_duplicate = i.labels.iter().any(|l| l.name.to_lowercase() == "duplicate");
-                                        !is_wont_fix && !is_duplicate
-                                    })
-                                    .collect::<Vec<_>>();
-
-                                let term_wont_fix = term_closed
-                                    .iter()
-                                    .filter(|i| i.state_reason == Some(octocrab::models::issues::IssueStateReason::NotPlanned))
-                                    .collect::<Vec<_>>();
-
-                                let term_duplicate = term_closed
-                                    .iter()
-                                    .filter(|i| {
-                                        i.labels
-                                            .iter()
-                                            .any(|l| l.name.to_lowercase() == "duplicate")
-                                    })
-                                    .collect::<Vec<_>>();
-
-                                println!(
-                                    "  - {}: {}/{} closed ({:.2}%) -- Open: {} ({:.2}%), Closed Completed: {} ({:.2}%), Won't Fix: {} ({:.2}%), Duplicate: {} ({:.2}%)",
-                                    value,
-                                    term_closed.len(),
-                                    term_issues.len(),
-                                    (term_closed.len() as f64 / term_issues.len() as f64) * 100.0,
-                                    term_open.len(),
-                                    (term_open.len() as f64 / term_issues.len() as f64) * 100.0,
-                                    term_completed.len(),
-                                    (term_completed.len() as f64 / term_issues.len() as f64) * 100.0,
-                                    term_wont_fix.len(),
-                                    (term_wont_fix.len() as f64 / term_issues.len() as f64) * 100.0,
-                                    term_duplicate.len(),
-                                    (term_duplicate.len() as f64 / term_issues.len() as f64) * 100.0
-                                );
-                            }
-                            if let Some(report_path) = &report {
+                    if let Some(report_path) = &report {
                         crate::helpers::metrics::generate_report(
                             &issues,
-                            &open_issues,
-                            &closed_completed,
-                            &closed_wont_fix,
-                            &closed_duplicate,
+                            &overall_metrics,
                             &permutation_keys_values,
                             report_path,
                         )?;
                         println!("Report generated successfully to {:?}", report_path);
-                    }                 }                 }
+                    }
                 }
             }
             GithubSubcommands::Utils { subcommand } => {
