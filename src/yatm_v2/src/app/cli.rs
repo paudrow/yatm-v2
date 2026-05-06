@@ -657,12 +657,115 @@ pub async fn cli() -> Result<()> {
                         .filter(|i| i.state == IssueState::Closed)
                         .collect::<Vec<_>>();
 
+                    let closed_completed = closed_issues
+                        .iter()
+                        .filter(|i| {
+                            let is_wont_fix = i.state_reason == Some(octocrab::models::issues::IssueStateReason::NotPlanned);
+                            let is_duplicate = i.labels.iter().any(|l| l.name.to_lowercase() == "duplicate");
+                            !is_wont_fix && !is_duplicate
+                        })
+                        .collect::<Vec<_>>();
+
+                    let closed_wont_fix = closed_issues
+                        .iter()
+                        .filter(|i| i.state_reason == Some(octocrab::models::issues::IssueStateReason::NotPlanned))
+                        .collect::<Vec<_>>();
+
+                    let closed_duplicate = closed_issues
+                        .iter()
+                        .filter(|i| i.labels.iter().any(|l| l.name.to_lowercase() == "duplicate"))
+                        .collect::<Vec<_>>();
+
+                    let open_issues = issues
+                        .iter()
+                        .filter(|i| i.state == IssueState::Open)
+                        .collect::<Vec<_>>();
+
                     println!(
-                        "{}/{} issues closed: {:.2}%",
-                        closed_issues.len(),
+                        "Overall Metrics:\n----------------------------------\nTotal Issues: {}\nOpen: {} ({:.2}%)\nClosed Completed: {} ({:.2}%)\nClosed Won't Fix: {} ({:.2}%)\nClosed Duplicate: {} ({:.2}%)",
                         issues.len(),
-                        (closed_issues.len() as f64 / issues.len() as f64) * 100.0
+                        open_issues.len(),
+                        (open_issues.len() as f64 / issues.len() as f64) * 100.0,
+                        closed_completed.len(),
+                        (closed_completed.len() as f64 / issues.len() as f64) * 100.0,
+                        closed_wont_fix.len(),
+                        (closed_wont_fix.len() as f64 / issues.len() as f64) * 100.0,
+                        closed_duplicate.len(),
+                        (closed_duplicate.len() as f64 / issues.len() as f64) * 100.0
                     );
+
+                    let test_cases = get_test_cases(&config)?;
+                    let mut permutation_keys_values: std::collections::BTreeMap<String, std::collections::BTreeSet<String>> = std::collections::BTreeMap::new();
+                    for tc in &test_cases {
+                        for (k, v) in &tc.selected_permutation {
+                            permutation_keys_values.entry(k.clone()).or_default().insert(v.clone());
+                        }
+                    }
+
+                    if !permutation_keys_values.is_empty() {
+                        println!("\nBreakdown by Permutation Key/Value:");
+                        println!("----------------------------------");
+                        for (key, values) in &permutation_keys_values {
+                            println!("{}:", key);
+                            for value in values {
+                                let label_str = crate::helpers::sanitize_label(format!("{}: {}", key, value));
+
+                                let term_issues = issues
+                                    .iter()
+                                    .filter(|i| i.labels.iter().any(|l| l.name == label_str))
+                                    .collect::<Vec<_>>();
+
+                                if term_issues.is_empty() {
+                                    continue;
+                                }
+
+                                let term_closed = term_issues
+                                    .iter()
+                                    .filter(|i| i.state == IssueState::Closed)
+                                    .collect::<Vec<_>>();
+
+                                let term_open = term_issues
+                                    .iter()
+                                    .filter(|i| i.state == IssueState::Open)
+                                    .collect::<Vec<_>>();
+
+                                let term_completed = term_closed
+                                    .iter()
+                                    .filter(|i| {
+                                        let is_wont_fix = i.state_reason == Some(octocrab::models::issues::IssueStateReason::NotPlanned);
+                                        let is_duplicate = i.labels.iter().any(|l| l.name.to_lowercase() == "duplicate");
+                                        !is_wont_fix && !is_duplicate
+                                    })
+                                    .collect::<Vec<_>>();
+
+                                let term_wont_fix = term_closed
+                                    .iter()
+                                    .filter(|i| i.state_reason == Some(octocrab::models::issues::IssueStateReason::NotPlanned))
+                                    .collect::<Vec<_>>();
+
+                                let term_duplicate = term_closed
+                                    .iter()
+                                    .filter(|i| i.labels.iter().any(|l| l.name.to_lowercase() == "duplicate"))
+                                    .collect::<Vec<_>>();
+
+                                println!(
+                                    "  - {}: {}/{} closed ({:.2}%) -- Open: {} ({:.2}%), Closed Completed: {} ({:.2}%), Won't Fix: {} ({:.2}%), Duplicate: {} ({:.2}%)",
+                                    value,
+                                    term_closed.len(),
+                                    term_issues.len(),
+                                    (term_closed.len() as f64 / term_issues.len() as f64) * 100.0,
+                                    term_open.len(),
+                                    (term_open.len() as f64 / term_issues.len() as f64) * 100.0,
+                                    term_completed.len(),
+                                    (term_completed.len() as f64 / term_issues.len() as f64) * 100.0,
+                                    term_wont_fix.len(),
+                                    (term_wont_fix.len() as f64 / term_issues.len() as f64) * 100.0,
+                                    term_duplicate.len(),
+                                    (term_duplicate.len() as f64 / term_issues.len() as f64) * 100.0
+                                );
+                            }
+                        }
+                    }
                 }
             }
             GithubSubcommands::Utils { subcommand } => {
