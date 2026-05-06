@@ -17,9 +17,88 @@ use std::ffi::OsStr;
 use std::path::PathBuf;
 
 use anyhow::{Context, Ok, Result};
+use askama::Template;
 use clap::{Parser, Subcommand};
 use octocrab::models::IssueState;
 use octocrab::params::State;
+
+#[derive(Template)]
+#[template(path = "metrics_report.md", escape = "none")]
+struct MetricsReportTemplate {
+    total_issues: usize,
+    open_count: usize,
+    open_pct: String,
+    completed_count: usize,
+    completed_pct: String,
+    wont_fix_count: usize,
+    wont_fix_pct: String,
+    duplicate_count: usize,
+    duplicate_pct: String,
+    permutations: Vec<PermutationKeyBreakdown>,
+    pairwise_matrices: Vec<PairwiseMatrix>,
+}
+
+struct PermutationKeyBreakdown {
+    key: String,
+    values: Vec<PermutationValueBreakdown>,
+}
+
+struct PermutationValueBreakdown {
+    value: String,
+    closed_count: usize,
+    total_count: usize,
+    closed_pct: String,
+    open_count: usize,
+    open_pct: String,
+    completed_count: usize,
+    completed_pct: String,
+    wont_fix_count: usize,
+    wont_fix_pct: String,
+    duplicate_count: usize,
+    duplicate_pct: String,
+    bar_width_pct: String,
+    has_completed: bool,
+    has_open: bool,
+    has_wont_fix: bool,
+    has_duplicate: bool,
+}
+
+struct PairwiseMatrix {
+    key_a: String,
+    key_b: String,
+    headers: Vec<MatrixHeader>,
+    rows: Vec<MatrixRow>,
+}
+
+struct MatrixHeader {
+    value: String,
+    width_pct: String,
+}
+
+struct MatrixRow {
+    val_a: String,
+    height: String,
+    cells: Vec<MatrixCell>,
+}
+
+struct MatrixCell {
+    total_cases: usize,
+    completed: usize,
+    total_valid: usize,
+    completed_pct: String,
+    open: usize,
+    open_pct: String,
+    wont_fix: usize,
+    wont_fix_pct: String,
+    duplicate: usize,
+    duplicate_pct: String,
+    has_mini_bar: bool,
+    has_completed: bool,
+    has_open: bool,
+    has_wont_fix: bool,
+    has_duplicate: bool,
+    lightness: String,
+}
 
 // Define the main application
 #[derive(Parser)]
@@ -794,34 +873,16 @@ pub async fn cli() -> Result<()> {
                                 );
                             }
                         }
-                    }
-
-                    if let Some(report_path) = &report {
-                        let mut report_str = String::new();
-                        report_str.push_str("# GitHub Test Case Metrics Report\n\n");
-                        report_str.push_str("## Overall Metrics\n");
-                        report_str.push_str("----------------------------------\n");
-                        report_str.push_str(&format!("- **Total Issues**: {}\n", issues.len()));
-                        report_str.push_str(&format!(
-                            "- **Open**: {} ({:.2}%)\n",
-                            open_issues.len(),
-                            (open_issues.len() as f64 / issues.len() as f64) * 100.0
-                        ));
-                        report_str.push_str(&format!(
-                            "- **Closed Completed**: {} ({:.2}%)\n",
-                            closed_completed.len(),
-                            (closed_completed.len() as f64 / issues.len() as f64) * 100.0
-                        ));
-                        report_str.push_str(&format!(
-                            "- **Closed Won't Fix**: {} ({:.2}%)\n",
-                            closed_wont_fix.len(),
-                            (closed_wont_fix.len() as f64 / issues.len() as f64) * 100.0
-                        ));
-                        report_str.push_str(&format!(
-                            "- **Closed Duplicate**: {} ({:.2}%)\n\n",
-                            closed_duplicate.len(),
-                            (closed_duplicate.len() as f64 / issues.len() as f64) * 100.0
-                        ));
+                         if let Some(report_path) = &report {
+                        let total_issues = issues.len();
+                        let open_count = open_issues.len();
+                        let open_pct = format!("{:.2}", (open_issues.len() as f64 / issues.len() as f64) * 100.0);
+                        let completed_count = closed_completed.len();
+                        let completed_pct = format!("{:.2}", (closed_completed.len() as f64 / issues.len() as f64) * 100.0);
+                        let wont_fix_count = closed_wont_fix.len();
+                        let wont_fix_pct = format!("{:.2}", (closed_wont_fix.len() as f64 / issues.len() as f64) * 100.0);
+                        let duplicate_count = closed_duplicate.len();
+                        let duplicate_pct = format!("{:.2}", (closed_duplicate.len() as f64 / issues.len() as f64) * 100.0);
 
                         let mut max_term_issues = 0;
                         if !permutation_keys_values.is_empty() {
@@ -842,11 +903,10 @@ pub async fn cli() -> Result<()> {
                             }
                         }
 
+                        let mut permutations = vec![];
                         if !permutation_keys_values.is_empty() {
-                            report_str.push_str("## Progress by Permutation Key/Value\n");
-                            report_str.push_str("----------------------------------\n");
                             for (key, values) in &permutation_keys_values {
-                                report_str.push_str(&format!("### {}\n", key));
+                                let mut value_breakdowns = vec![];
                                 for value in values {
                                     let label_str = crate::helpers::sanitize_label(format!(
                                         "{}: {}",
@@ -910,48 +970,43 @@ pub async fn cli() -> Result<()> {
                                         / term_issues.len() as f64)
                                         * 100.0;
 
-                                    report_str.push_str(&format!(
-                                        "- **{}**: {}/{} closed ({:.2}%) -- Open: {} ({:.2}%), Closed Completed: {} ({:.2}%), Won't Fix: {} ({:.2}%), Duplicate: {} ({:.2}%)\n",
-                                        value,
-                                        term_closed.len(),
-                                        term_issues.len(),
-                                        closed_pct,
-                                        term_open.len(),
-                                        open_pct,
-                                        term_completed.len(),
-                                        completed_pct,
-                                        term_wont_fix.len(),
-                                        wont_fix_pct,
-                                        term_duplicate.len(),
-                                        duplicate_pct
-                                    ));
-
-                                    // HTML Progress Bar
                                     let bar_width_pct = if max_term_issues > 0 {
                                         (term_issues.len() as f64 / max_term_issues as f64) * 100.0
                                     } else {
                                         0.0
                                     };
 
-                                    report_str.push_str(&format!("  <div style=\"width: {:.2}%; background-color: #cbd5e1; border-radius: 4px; overflow: hidden; display: flex; border: 1px solid #cbd5e1; margin: 4px 0 12px 0;\">\n", bar_width_pct));
-                                    if completed_pct > 0.0 {
-                                        report_str.push_str(&format!("    <div style=\"width: {:.2}%; background-color: #2da44e; height: 14px; display: inline-block;\" title=\"Closed Completed: {} cases ({:.2}%)\"></div>\n", completed_pct, term_completed.len(), completed_pct));
-                                    }
-                                    if open_pct > 0.0 {
-                                        report_str.push_str(&format!("    <div style=\"width: {:.2}%; background-color: #ffffff; border-left: 1px solid #ddd; border-right: 1px solid #ddd; height: 14px; display: inline-block;\" title=\"Open: {} cases ({:.2}%)\"></div>\n", open_pct, term_open.len(), open_pct));
-                                    }
-                                    if wont_fix_pct > 0.0 {
-                                        report_str.push_str(&format!("    <div style=\"width: {:.2}%; background-color: darkgray; height: 14px; display: inline-block;\" title=\"Won't Fix: {} cases ({:.2}%)\"></div>\n", wont_fix_pct, term_wont_fix.len(), wont_fix_pct));
-                                    }
-                                    if duplicate_pct > 0.0 {
-                                        report_str.push_str(&format!("    <div style=\"width: {:.2}%; background-color: #7c3aed; height: 14px; display: inline-block;\" title=\"Duplicate: {} cases ({:.2}%)\"></div>\n", duplicate_pct, term_duplicate.len(), duplicate_pct));
-                                    }
-                                    report_str.push_str("  </div>\n");
+                                    value_breakdowns.push(PermutationValueBreakdown {
+                                        value: value.clone(),
+                                        closed_count: term_closed.len(),
+                                        total_count: term_issues.len(),
+                                        closed_pct: format!("{:.2}", closed_pct),
+                                        open_count: term_open.len(),
+                                        open_pct: format!("{:.2}", open_pct),
+                                        completed_count: term_completed.len(),
+                                        completed_pct: format!("{:.2}", completed_pct),
+                                        wont_fix_count: term_wont_fix.len(),
+                                        wont_fix_pct: format!("{:.2}", wont_fix_pct),
+                                        duplicate_count: term_duplicate.len(),
+                                        duplicate_pct: format!("{:.2}", duplicate_pct),
+                                        bar_width_pct: format!("{:.2}", bar_width_pct),
+                                        has_completed: completed_pct > 0.0,
+                                        has_open: open_pct > 0.0,
+                                        has_wont_fix: wont_fix_pct > 0.0,
+                                        has_duplicate: duplicate_pct > 0.0,
+                                    });
+                                }
+                                if !value_breakdowns.is_empty() {
+                                    permutations.push(PermutationKeyBreakdown {
+                                        key: key.clone(),
+                                        values: value_breakdowns,
+                                    });
                                 }
                             }
+                        }
 
-                            report_str.push_str("\n## Pairwise Permutation Progress Matrices\n");
-                            report_str.push_str("----------------------------------\n");
+                        let mut pairwise_matrices = vec![];
+                        if !permutation_keys_values.is_empty() {
                             let keys: Vec<String> =
                                 permutation_keys_values.keys().cloned().collect();
                             for i in 0..keys.len() {
@@ -1028,14 +1083,16 @@ pub async fn cli() -> Result<()> {
                                         })
                                         .collect();
 
-                                    report_str.push_str(&format!("### {} vs {}\n\n", key_a, key_b));
-                                    report_str.push_str("<table style=\"width: 100%; border-collapse: collapse;\">\n  <thead>\n    <tr>\n");
-                                    report_str.push_str(&format!("      <th style=\"border: 1px solid #ddd; padding: 8px; background-color: #f8fafc;\">{} \\ {}</th>\n", key_a, key_b));
-                                    for (val_b, col_w) in values_b.iter().zip(&col_widths) {
-                                        report_str.push_str(&format!("      <th style=\"width: {:.2}%; border: 1px solid #ddd; padding: 8px; background-color: #f8fafc;\">{}</th>\n", col_w, val_b));
-                                    }
-                                    report_str.push_str("    </tr>\n  </thead>\n  <tbody>\n");
+                                    let headers = values_b
+                                        .iter()
+                                        .zip(&col_widths)
+                                        .map(|(val_b, col_w)| MatrixHeader {
+                                            value: val_b.clone(),
+                                            width_pct: format!("{:.2}", col_w),
+                                        })
+                                        .collect();
 
+                                    let mut rows = vec![];
                                     for val_a in &values_a {
                                         let label_a = crate::helpers::sanitize_label(format!(
                                             "{}: {}",
@@ -1052,11 +1109,7 @@ pub async fn cli() -> Result<()> {
                                             50.0
                                         };
 
-                                        report_str.push_str(&format!(
-                                            "    <tr style=\"height: {:.0}px;\">\n",
-                                            row_height
-                                        ));
-                                        report_str.push_str(&format!("      <td style=\"border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #f8fafc;\">{}</td>\n", val_a));
+                                        let mut cells = vec![];
                                         for val_b in &values_b {
                                             let label_b = crate::helpers::sanitize_label(format!(
                                                 "{}: {}",
@@ -1127,24 +1180,6 @@ pub async fn cli() -> Result<()> {
                                                 0.0
                                             };
 
-                                            let mut mini_bar_str = String::new();
-                                            if cell_total > 0 {
-                                                mini_bar_str.push_str("        <div style=\"width: 100%; min-width: 80px; background-color: #cbd5e1; border-radius: 2px; overflow: hidden; display: flex; border: 1px solid #cbd5e1; margin: 2px 0 4px 0;\">\n");
-                                                if cell_completed_pct > 0.0 {
-                                                    mini_bar_str.push_str(&format!("          <div style=\"width: {:.2}%; background-color: #2da44e; height: 10px;\" title=\"Closed Completed: {} cases ({:.1}%)\"></div>\n", cell_completed_pct, cell_completed, cell_completed_pct));
-                                                }
-                                                if cell_open_pct > 0.0 {
-                                                    mini_bar_str.push_str(&format!("          <div style=\"width: {:.2}%; background-color: #ffffff; border-left: 1px solid #ddd; border-right: 1px solid #ddd; height: 10px;\" title=\"Open: {} cases ({:.1}%)\"></div>\n", cell_open_pct, cell_open.len(), cell_open_pct));
-                                                }
-                                                if cell_wont_fix_pct > 0.0 {
-                                                    mini_bar_str.push_str(&format!("          <div style=\"width: {:.2}%; background-color: darkgray; height: 10px;\" title=\"Won't Fix: {} cases ({:.1}%)\"></div>\n", cell_wont_fix_pct, cell_wont_fix, cell_wont_fix_pct));
-                                                }
-                                                if cell_duplicate_pct > 0.0 {
-                                                    mini_bar_str.push_str(&format!("          <div style=\"width: {:.2}%; background-color: #7c3aed; height: 10px;\" title=\"Duplicate: {} cases ({:.1}%)\"></div>\n", cell_duplicate_pct, cell_duplicate, cell_duplicate_pct));
-                                                }
-                                                mini_bar_str.push_str("        </div>\n");
-                                            }
-
                                             let cell_completed_ratio = if cell_total > 0 {
                                                 cell_completed as f64 / cell_total as f64
                                             } else {
@@ -1152,27 +1187,61 @@ pub async fn cli() -> Result<()> {
                                             };
                                             let cell_lightness =
                                                 100.0 - (cell_completed_ratio * 12.0);
-                                            let mini_bar_line = if cell_total > 0 {
-                                                format!("{}\n", mini_bar_str.trim_end())
-                                            } else {
-                                                "".to_string()
-                                            };
 
-                                            report_str.push_str(&format!(
-                                                "      <td style=\"background-color: hsl(140, 70%, {:.1}%); color: #111; font-weight: 500; border: 1px solid #ddd; padding: 8px; text-align: center; vertical-align: middle;\">{}        Cases: {}<br>\n        Completed: {}/{} ({:.1}%)\n      </td>\n",
-                                                cell_lightness, mini_bar_line, cell_issues.len(), cell_completed, cell_total, cell_completed_pct
-                                            ));
+                                            cells.push(MatrixCell {
+                                                total_cases: cell_issues.len(),
+                                                completed: cell_completed,
+                                                total_valid: cell_total,
+                                                completed_pct: format!("{:.1}", cell_completed_pct),
+                                                open: cell_open.len(),
+                                                open_pct: format!("{:.1}", cell_open_pct),
+                                                wont_fix: cell_wont_fix,
+                                                wont_fix_pct: format!("{:.1}", cell_wont_fix_pct),
+                                                duplicate: cell_duplicate,
+                                                duplicate_pct: format!("{:.1}", cell_duplicate_pct),
+                                                has_mini_bar: cell_total > 0,
+                                                has_completed: cell_completed_pct > 0.0,
+                                                has_open: cell_open_pct > 0.0,
+                                                has_wont_fix: cell_wont_fix_pct > 0.0,
+                                                has_duplicate: cell_duplicate_pct > 0.0,
+                                                lightness: format!("{:.1}", cell_lightness),
+                                            });
                                         }
-                                        report_str.push_str("    </tr>\n");
+                                        rows.push(MatrixRow {
+                                            val_a: val_a.clone(),
+                                            height: format!("{:.0}", row_height),
+                                            cells,
+                                        });
                                     }
-                                    report_str.push_str("  </tbody>\n</table>\n\n");
+
+                                    pairwise_matrices.push(PairwiseMatrix {
+                                        key_a: key_a.clone(),
+                                        key_b: key_b.clone(),
+                                        headers,
+                                        rows,
+                                    });
                                 }
                             }
                         }
 
+                        let template = MetricsReportTemplate {
+                            total_issues,
+                            open_count,
+                            open_pct,
+                            completed_count,
+                            completed_pct,
+                            wont_fix_count,
+                            wont_fix_pct,
+                            duplicate_count,
+                            duplicate_pct,
+                            permutations,
+                            pairwise_matrices,
+                        };
+
+                        let report_str = template.render().context("Failed to render the metrics report template")?;
                         std::fs::write(report_path, report_str)?;
                         println!("Report generated successfully to {:?}", report_path);
-                    }
+                    }                 }
                 }
             }
             GithubSubcommands::Utils { subcommand } => {
