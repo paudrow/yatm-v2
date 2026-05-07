@@ -1,4 +1,20 @@
+---
+layout: post
+title: "{{ target_repo }} Test Case Metrics - {{ run_date }}"
+date: {{ run_date }} {{ run_time }}
+categories: test-metrics
+---
+
 # GitHub Test Case Metrics Report
+
+## Execution Context Details
+- **Analysis Execution Date**: {{ run_date }}
+- **Analysis Execution Time**: {{ run_time }}
+- **Target Repository**: `{{ target_repo }}`
+{% if let Some(label) = filter_label -%}
+- **Filtered Label**: `{{ label }}`
+{%- endif %}
+- **Workspace Version**: `{{ workspace_version }}`
 
 ## Overall Metrics
 ----------------------------------

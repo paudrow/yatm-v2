@@ -19,6 +19,11 @@ struct MetricsReportTemplate {
     duplicate_pct: String,
     permutations: Vec<PermutationKeyBreakdown>,
     pairwise_matrices: Vec<PairwiseMatrix>,
+    run_date: String,
+    run_time: String,
+    target_repo: String,
+    filter_label: Option<String>,
+    workspace_version: String,
 }
 
 #[derive(Template)]
@@ -305,6 +310,9 @@ pub fn generate_report(
     metrics: &OverallMetrics,
     permutation_keys_values: &BTreeMap<String, BTreeSet<String>>,
     report_path: &PathBuf,
+    target_repo: String,
+    filter_label: Option<String>,
+    workspace_version: String,
 ) -> Result<()> {
     let permutations = calculate_permutations_breakdown(issues, permutation_keys_values);
 
@@ -433,7 +441,7 @@ pub fn generate_report(
                             .filter(|issue| {
                                 issue.state_reason
                                     == Some(octocrab::models::issues::IssueStateReason::NotPlanned)
-                            })
+                             })
                             .count();
 
                         let cell_duplicate = cell_closed
@@ -513,6 +521,10 @@ pub fn generate_report(
         }
     }
 
+    let now = chrono::Local::now();
+    let run_date = now.format("%Y-%m-%d").to_string();
+    let run_time = now.format("%H:%M:%S %z").to_string();
+
     let template = MetricsReportTemplate {
         total_issues: metrics.total,
         open_count: metrics.open,
@@ -525,6 +537,11 @@ pub fn generate_report(
         duplicate_pct: format!("{:.2}", metrics.duplicate_pct),
         permutations,
         pairwise_matrices,
+        run_date,
+        run_time,
+        target_repo,
+        filter_label,
+        workspace_version,
     };
 
     let report_str = template
@@ -614,6 +631,11 @@ mod tests {
             duplicate_pct: format!("{:.2}", metrics.duplicate_pct),
             permutations,
             pairwise_matrices,
+            run_date: "2026-05-07".to_string(),
+            run_time: "20:08:33 +0000".to_string(),
+            target_repo: "owner/name".to_string(),
+            filter_label: None,
+            workspace_version: "v2".to_string(),
         };
 
         let rendered = template
@@ -751,6 +773,9 @@ mod tests {
             &metrics,
             &permutation_keys_values,
             &report_path,
+            "owner/name".to_string(),
+            None,
+            "v2".to_string(),
         );
         assert!(result.is_ok());
         assert!(report_path.exists());
@@ -759,4 +784,6 @@ mod tests {
             std::fs::read_to_string(report_path).expect("Failed to read written report in test");
         assert!(report_content.contains("# GitHub Test Case Metrics Report"));
     }
+
 }
+
