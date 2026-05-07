@@ -17,6 +17,7 @@ use std::ffi::OsStr;
 use std::path::PathBuf;
 
 use anyhow::{Context, Ok, Result};
+
 use clap::{Parser, Subcommand};
 use octocrab::models::IssueState;
 use octocrab::params::State;
@@ -146,6 +147,9 @@ enum GithubSubcommands {
         /// The label to analyze
         #[clap(short, long)]
         label: Option<String>,
+        /// Generates a visual pairwise permutation matrix report inside the specified directory path matching Jekyll DATE-title.md requirements
+        #[clap(short, long)]
+        report: Option<PathBuf>,
     },
     /// Preview the test cases in markdown
     Preview {
@@ -628,7 +632,11 @@ pub async fn cli() -> Result<()> {
                     output_path
                 ))?;
             }
-            GithubSubcommands::Metrics { config_path, label } => {
+            GithubSubcommands::Metrics {
+                config_path,
+                label,
+                report,
+            } => {
                 let config = load_config(&config_path)?;
                 let project_version = project_version_to_label(&config.workspace_version);
 
@@ -649,20 +657,104 @@ pub async fn cli() -> Result<()> {
                         is_version && is_label_of_interest
                     })
                     .collect::<Vec<_>>();
-                if issues.is_empty() {
-                    println!("No issues found");
-                } else {
-                    let closed_issues = issues
-                        .iter()
-                        .filter(|i| i.state == IssueState::Closed)
-                        .collect::<Vec<_>>();
+                let closed_issues = issues
+                    .iter()
+                    .copied()
+                    .filter(|i| i.state == IssueState::Closed)
+                    .collect::<Vec<_>>();
 
-                    println!(
-                        "{}/{} issues closed: {:.2}%",
-                        closed_issues.len(),
-                        issues.len(),
-                        (closed_issues.len() as f64 / issues.len() as f64) * 100.0
-                    );
+                let closed_completed = closed_issues
+                    .iter()
+                    .copied()
+                    .filter(|i| {
+                        let is_wont_fix = i.state_reason
+                            == Some(octocrab::models::issues::IssueStateReason::NotPlanned);
+                        let is_duplicate = i
+                            .labels
+                            .iter()
+                            .any(|l| l.name.to_lowercase() == "duplicate");
+                        !is_wont_fix && !is_duplicate
+                    })
+                    .collect::<Vec<_>>();
+
+                let closed_wont_fix = closed_issues
+                    .iter()
+                    .copied()
+                    .filter(|i| {
+                        i.state_reason
+                            == Some(octocrab::models::issues::IssueStateReason::NotPlanned)
+                    })
+                    .collect::<Vec<_>>();
+
+                let closed_duplicate = closed_issues
+                    .iter()
+                    .copied()
+                    .filter(|i| {
+                        i.labels
+                            .iter()
+                            .any(|l| l.name.to_lowercase() == "duplicate")
+                    })
+                    .collect::<Vec<_>>();
+
+                let open_issues = issues
+                    .iter()
+                    .copied()
+                    .filter(|i| i.state == IssueState::Open)
+                    .collect::<Vec<_>>();
+
+                let overall_metrics = crate::helpers::metrics::calculate_overall_metrics(
+                    &issues,
+                    &open_issues,
+                    &closed_completed,
+                    &closed_wont_fix,
+                    &closed_duplicate,
+                );
+                let test_cases = get_test_cases(&config)?;
+                let mut permutation_keys_values: std::collections::BTreeMap<
+                    String,
+                    std::collections::BTreeSet<String>,
+                > = std::collections::BTreeMap::new();
+                for tc in &test_cases {
+                    for (k, v) in &tc.selected_permutation {
+                        permutation_keys_values
+                            .entry(k.clone())
+                            .or_default()
+                            .insert(v.clone());
+                    }
+                }
+
+                crate::helpers::metrics::print_overall_metrics(
+                    &overall_metrics,
+                    &issues,
+                    &permutation_keys_values,
+                );
+
+                if let Some(report_dir) = &report {
+                    let target_repo = format!("{}/{}", config.repo_owner, config.repo_name);
+                    let clean_slug = target_repo.replace('/', "-");
+                    
+                    let now = chrono::Local::now();
+                    let filename = format!("{}-{}.md", now.format("%Y-%m-%d"), clean_slug);
+                    let report_file_path = report_dir.join(filename);
+
+                    // Create the target directory if it doesn't exist
+                    if !report_dir.exists() {
+                        std::fs::create_dir_all(report_dir).context(format!(
+                            "Failed to create metrics report directory: {:?}",
+                            report_dir
+                        ))?;
+                    }
+
+                    crate::helpers::metrics::generate_report(
+                        &issues,
+                        &overall_metrics,
+                        &permutation_keys_values,
+                        &report_file_path,
+                        target_repo,
+                        label.clone(),
+                        config.workspace_version.clone(),
+                    )?;
+                    println!("Report generated successfully to {:?}", report_file_path);
                 }
             }
             GithubSubcommands::Utils { subcommand } => {

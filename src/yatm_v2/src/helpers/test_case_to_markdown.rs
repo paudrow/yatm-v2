@@ -72,7 +72,7 @@ pub fn project_version_to_label(workspace_version: &String) -> String {
     format!("version: {}", workspace_version)
 }
 
-fn sanitize_label(label: String) -> String {
+pub fn sanitize_label(label: String) -> String {
     let sanitized = label.replace(",", "").replace("`", "");
     if sanitized.len() > 50 {
         sanitized[..50].to_string()
