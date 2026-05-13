@@ -78,3 +78,25 @@ categories: test-metrics
 
 {% endfor %}
 {%- endif %}
+
+{% if !leaderboard.contributors.is_empty() -%}
+## Contributors Leaderboard
+----------------------------------
+
+<table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+  <thead>
+    <tr>
+      <th style="border: 1px solid #ddd; padding: 8px; background-color: #f8fafc; text-align: left;">Contributor</th>
+      <th style="border: 1px solid #ddd; padding: 8px; background-color: #f8fafc;">Closed Assigned Issues</th>
+    </tr>
+  </thead>
+  <tbody>
+    {%- for c in leaderboard.contributors %}
+    <tr>
+      <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #f8fafc; text-align: left;"><img src="https://github.com/{{ c.username }}.png?size=32" width="20" height="20" style="border-radius: 50%; vertical-align: middle; margin-right: 8px;" />{{ c.username }}</td>
+      <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ c.closed_assigned_issues }}</td>
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table>
+{%- endif %}

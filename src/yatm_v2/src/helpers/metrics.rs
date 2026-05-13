@@ -24,6 +24,52 @@ struct MetricsReportTemplate {
     target_repo: String,
     filter_label: Option<String>,
     workspace_version: String,
+    leaderboard: Leaderboard,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ContributorMetric {
+    pub username: String,
+    pub closed_assigned_issues: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Leaderboard {
+    pub contributors: Vec<ContributorMetric>,
+}
+
+impl Leaderboard {
+    pub fn calculate(issues: &[&Issue]) -> Self {
+        let mut contributor_map: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+
+        for &issue in issues {
+            if issue.state == IssueState::Closed {
+                for assignee in &issue.assignees {
+                    *contributor_map.entry(assignee.login.clone()).or_insert(0) += 1;
+                }
+            }
+        }
+
+        let mut leaderboard = Self::default();
+        for (username, closed_assigned) in contributor_map {
+            leaderboard.contributors.push(ContributorMetric {
+                username,
+                closed_assigned_issues: closed_assigned,
+            });
+        }
+        leaderboard.sort();
+
+        leaderboard
+    }
+
+    pub fn sort(&mut self) {
+        let cmp = |a: &ContributorMetric, b: &ContributorMetric| {
+            b.closed_assigned_issues
+                .cmp(&a.closed_assigned_issues)
+                .then_with(|| a.username.cmp(&b.username))
+        };
+        self.contributors.sort_by(cmp);
+    }
 }
 
 #[derive(Template)]
@@ -314,6 +360,7 @@ pub fn generate_report(
     filter_label: Option<String>,
     workspace_version: String,
 ) -> Result<()> {
+    let leaderboard = Leaderboard::calculate(issues);
     let permutations = calculate_permutations_breakdown(issues, permutation_keys_values);
 
     let mut pairwise_matrices = vec![];
@@ -542,6 +589,7 @@ pub fn generate_report(
         target_repo,
         filter_label,
         workspace_version,
+        leaderboard,
     };
 
     let report_str = template
@@ -636,6 +684,7 @@ mod tests {
             target_repo: "owner/name".to_string(),
             filter_label: None,
             workspace_version: "v2".to_string(),
+            leaderboard: Leaderboard::default(),
         };
 
         let rendered = template
