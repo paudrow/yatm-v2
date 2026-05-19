@@ -732,7 +732,7 @@ pub async fn cli() -> Result<()> {
                 if let Some(report_dir) = &report {
                     let target_repo = format!("{}/{}", config.repo_owner, config.repo_name);
                     let clean_slug = target_repo.replace('/', "-");
-                    
+
                     let now = chrono::Local::now();
                     let filename = format!("{}-{}.md", now.format("%Y-%m-%d"), clean_slug);
                     let report_file_path = report_dir.join(filename);

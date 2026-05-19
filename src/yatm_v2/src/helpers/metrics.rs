@@ -40,7 +40,8 @@ pub struct Leaderboard {
 
 impl Leaderboard {
     pub fn calculate(issues: &[&Issue]) -> Self {
-        let mut contributor_map: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut contributor_map: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
 
         for &issue in issues {
             if issue.state == IssueState::Closed {
@@ -488,7 +489,7 @@ pub fn generate_report(
                             .filter(|issue| {
                                 issue.state_reason
                                     == Some(octocrab::models::issues::IssueStateReason::NotPlanned)
-                             })
+                            })
                             .count();
 
                         let cell_duplicate = cell_closed
@@ -833,6 +834,4 @@ mod tests {
             std::fs::read_to_string(report_path).expect("Failed to read written report in test");
         assert!(report_content.contains("# GitHub Test Case Metrics Report"));
     }
-
 }
-
