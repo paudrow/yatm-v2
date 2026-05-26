@@ -49,6 +49,7 @@ fn convert_v1_to_v2(req_v1: &RequirementV1) -> Result<RequirementV2> {
         steps,
         labels: req_v1.labels.clone(),
         links: req_v1.links.clone(),
+        source: None,
     })
 }
 

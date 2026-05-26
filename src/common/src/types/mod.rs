@@ -6,7 +6,7 @@ mod test_cases_builder;
 mod test_cases_builder_file;
 
 pub use github_label::GithubLabel;
-pub use requirement::{Action, Expect, Link, Requirement, Step, Terminal};
+pub use requirement::{Action, Expect, Link, Requirement, RequirementSource, Step, Terminal};
 pub use requirements_file::RequirementsFile;
 pub use test_case::TestCase;
 pub use test_cases_builder::{Filter, SetSteps, TestCasesBuilder};

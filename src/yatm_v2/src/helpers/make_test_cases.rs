@@ -95,6 +95,7 @@ mod test_make_test_cases {
                 labels: Some(vec!["label1".to_string()]),
                 links: None,
                 steps: vec![],
+                source: None,
             },
             Requirement {
                 name: "name2".to_string(),
@@ -103,6 +104,7 @@ mod test_make_test_cases {
                 labels: Some(vec!["label2".to_string()]),
                 links: None,
                 steps: vec![],
+                source: None,
             },
         ];
         let test_cases_builder = TestCasesBuilder {
@@ -176,6 +178,7 @@ mod test_make_test_cases {
                 labels: Some(vec!["label1".to_string()]),
                 links: None,
                 steps: vec![],
+                source: None,
             },
             Requirement {
                 name: "name2".to_string(),
@@ -184,6 +187,7 @@ mod test_make_test_cases {
                 labels: Some(vec!["label2".to_string()]),
                 links: None,
                 steps: vec![],
+                source: None,
             },
         ];
         let test_cases_builder = TestCasesBuilder {
@@ -272,6 +276,7 @@ mod test_make_test_cases {
                 labels: Some(vec!["label1".to_string()]),
                 links: None,
                 steps: vec![],
+                source: None,
             },
             Requirement {
                 name: "name2".to_string(),
@@ -280,6 +285,7 @@ mod test_make_test_cases {
                 labels: Some(vec!["label2".to_string()]),
                 links: None,
                 steps: vec![],
+                source: None,
             },
         ];
         let test_cases_builder = TestCasesBuilder {
@@ -449,6 +455,7 @@ mod test_filter_matches_requirements {
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
+            source: None,
         };
         assert_eq!(
             filter_matches_requirement(&filter, &requirement, None),
@@ -470,6 +477,7 @@ mod test_filter_matches_requirements {
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
+            source: None,
         };
         assert_eq!(
             filter_matches_requirement(&filter, &requirement, None),
@@ -491,6 +499,7 @@ mod test_filter_matches_requirements {
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
+            source: None,
         };
         assert_eq!(
             filter_matches_requirement(&filter, &requirement, None),
@@ -512,6 +521,7 @@ mod test_filter_matches_requirements {
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
+            source: None,
         };
         assert_eq!(
             filter_matches_requirement(&filter, &requirement, None),
@@ -533,6 +543,7 @@ mod test_filter_matches_requirements {
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
+            source: None,
         };
         assert_eq!(
             filter_matches_requirement(&filter, &requirement, None),
@@ -554,6 +565,7 @@ mod test_filter_matches_requirements {
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
+            source: None,
         };
         assert_eq!(
             filter_matches_requirement(&filter, &requirement, None),
@@ -575,6 +587,7 @@ mod test_filter_matches_requirements {
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
+            source: None,
         };
         assert_eq!(
             filter_matches_requirement(&filter, &requirement, None),
@@ -596,6 +609,7 @@ mod test_filter_matches_requirements {
             labels: Some(vec!["label1".to_string(), "extra".to_string()]),
             links: None,
             steps: vec![],
+            source: None,
         };
         assert_eq!(
             filter_matches_requirement(&filter, &requirement, None),
@@ -617,6 +631,7 @@ mod test_filter_matches_requirements {
             labels: Some(vec!["label1".to_string(), "extra".to_string()]),
             links: None,
             steps: vec![],
+            source: None,
         };
         assert_eq!(
             filter_matches_requirement(&filter, &requirement, None),
@@ -638,6 +653,7 @@ mod test_filter_matches_requirements {
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
+            source: None,
         };
         assert_eq!(
             filter_matches_requirement(&filter, &requirement, None),
@@ -659,6 +675,7 @@ mod test_filter_matches_requirements {
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
+            source: None,
         };
         assert_eq!(
             filter_matches_requirement(&filter, &requirement, None),
@@ -680,6 +697,7 @@ mod test_filter_matches_requirements {
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
+            source: None,
         };
         assert_eq!(
             filter_matches_requirement(&filter, &requirement, None),
@@ -701,6 +719,7 @@ mod test_filter_matches_requirements {
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
+            source: None,
         };
         assert_eq!(
             filter_matches_requirement(&filter, &requirement, None),
@@ -722,6 +741,7 @@ mod test_filter_matches_requirements {
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
+            source: None,
         };
         let mut permutation = HashMap::new();
         permutation.insert("key1".to_string(), "value1".to_string());
@@ -745,6 +765,7 @@ mod test_filter_matches_requirements {
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
+            source: None,
         };
         assert_eq!(
             filter_matches_requirement(&filter, &requirement, None),
@@ -766,6 +787,7 @@ mod test_filter_matches_requirements {
             labels: Some(vec!["label1".to_string(), "label2".to_string()]),
             links: None,
             steps: vec![],
+            source: None,
         };
         assert_eq!(
             filter_matches_requirement(&filter, &requirement, None),

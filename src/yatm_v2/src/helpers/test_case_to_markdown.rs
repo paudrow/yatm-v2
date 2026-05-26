@@ -1,7 +1,7 @@
 use crate::types::LocalIssue;
 use anyhow::{Context, Result};
 use askama::Template;
-use common::types::{Action, Expect, Link, Step, TestCase};
+use common::types::{Action, Expect, Link, RequirementSource, Step, TestCase};
 use std::collections::{BTreeMap, HashMap};
 
 #[derive(Template, Clone)]
@@ -12,6 +12,7 @@ struct GithubIssueTemplate {
     links: Vec<Link>,
     selected_permutation: BTreeMap<String, String>,
     minimum_permutations_to_render: usize,
+    requirement_source: Option<RequirementSource>,
 }
 
 pub fn test_case_to_markdown(
@@ -27,6 +28,7 @@ pub fn test_case_to_markdown(
         selected_permutation: test_case.selected_permutation.into_iter().collect(),
         minimum_permutations_to_render: test_case.builder_used.minimum_permutations_to_render
             as usize,
+        requirement_source: test_case.requirement.source,
     };
     let text_body = template.render().context("Failed to render the template")?;
 

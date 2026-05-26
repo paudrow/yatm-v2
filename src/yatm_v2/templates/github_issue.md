@@ -88,3 +88,8 @@
         {%- endfor -%}
     {% endif %}
 {%- endfor %}
+
+{% if let Some(source) = requirement_source -%}
+If there's a problem with this issue description please open a PR or issue against the [requirement source here]({{ source.web_browsing_link }})
+{%- endif %}
+
