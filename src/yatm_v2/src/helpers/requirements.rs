@@ -91,8 +91,10 @@ mod test_validate_requirement {
             clean_repository_url("git@gitlab.com:owner/repo.git"),
             "https://gitlab.com/owner/repo"
         );
+    }
 
-      fn test_get_requirements_from_multiple_files() {
+    #[test]
+    fn test_get_requirements_from_multiple_files() {
         let dir = tempdir().unwrap();
         let requirement_path1 = dir.path().join("requirement1.yaml");
         let mut file1 = File::create(&requirement_path1).unwrap();
