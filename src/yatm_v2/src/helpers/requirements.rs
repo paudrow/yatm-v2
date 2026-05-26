@@ -45,6 +45,30 @@ mod test_validate_requirement {
         file.write_all(requirement_str.as_bytes()).unwrap();
         assert!(validate_requirements_file(&requirement_path).is_err());
     }
+
+    #[test]
+    fn test_get_requirements_from_multiple_files() {
+        let dir = tempdir().unwrap();
+        let requirement_path1 = dir.path().join("requirement1.yaml");
+        let mut file1 = File::create(&requirement_path1).unwrap();
+        let mut requirements_file1 = RequirementsFile::default();
+        requirements_file1.requirements[0].name = "req1".to_string();
+        let req_str1 = serde_yaml::to_string(&requirements_file1).unwrap();
+        file1.write_all(req_str1.as_bytes()).unwrap();
+
+        let requirement_path2 = dir.path().join("requirement2.yaml");
+        let mut file2 = File::create(&requirement_path2).unwrap();
+        let mut requirements_file2 = RequirementsFile::default();
+        requirements_file2.requirements[0].name = "req2".to_string();
+        let req_str2 = serde_yaml::to_string(&requirements_file2).unwrap();
+        file2.write_all(req_str2.as_bytes()).unwrap();
+
+        let reqs = get_requirements_from_files(&vec![dir.path().to_path_buf()]).unwrap();
+        assert_eq!(reqs.len(), 2);
+        let mut names: Vec<String> = reqs.into_iter().map(|r| r.name).collect();
+        names.sort();
+        assert_eq!(names, vec!["req1".to_string(), "req2".to_string()]);
+    }
 }
 
 /// Get the requirements from the files.
