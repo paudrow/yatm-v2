@@ -3,9 +3,10 @@ use crate::app::load_config::load_config;
 use crate::constants::YAML_EXTENSIONS;
 use crate::helpers::{
     get_files, get_local_issues_matches, get_requirements_from_file, get_test_cases,
-    get_test_cases_builders_from_file, permutation_to_labels, project_version_to_label,
-    test_case_to_markdown, validate_requirements_file, validate_requirements_files,
-    validate_test_cases_builder_file, GithubIssueMatches, IssueMatchType,
+    get_test_cases_builders_from_file, get_test_cases_builders_from_files, permutation_to_labels,
+    project_version_to_label, test_case_to_markdown, validate_requirements_file,
+    validate_requirements_files, validate_test_cases_builder_file, GithubIssueMatches,
+    IssueMatchType,
 };
 use crate::types::LocalIssue;
 use common::github::Github;
@@ -449,8 +450,20 @@ pub async fn cli() -> Result<()> {
                 };
                 file_contents =
                     prepend_markdown_table_of_contents(&file_contents, Some(&toc_options));
-                let gh = Github::new(&config.repo_owner, &config.repo_name)?;
 
+                let config_yaml =
+                    serde_yaml::to_string(&config).context("Failed to serialize config to yaml")?;
+                let test_cases_builders =
+                    get_test_cases_builders_from_files(&config.test_cases_builders_dirs)
+                        .context("Failed to get test case builders for github preview")?;
+
+                let gh = Github::new(&config.repo_owner, &config.repo_name)?;
+                file_contents = gh.prepend_config_info(
+                    &file_contents,
+                    &config_path,
+                    &config_yaml,
+                    &test_cases_builders,
+                )?;
                 file_contents = gh.prepend_github_info(&file_contents);
 
                 // Write the test cases to a file
