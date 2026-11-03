@@ -6,7 +6,7 @@ use crate::helpers::{
     get_test_cases, get_test_cases_builders_from_file, permutation_to_labels,
     project_version_to_label, test_case_to_markdown, validate_requirements_file,
     validate_requirements_files, validate_test_cases_builder_file, GithubIssueMatches,
-    IssueMatchType,
+    IssueMatchType, SOURCE_BRANCH_ENV,
 };
 use crate::types::LocalIssue;
 use common::github::Github;
@@ -28,6 +28,11 @@ use octocrab::params::State;
 struct App {
     #[clap(subcommand)]
     pub command: Commands,
+
+    /// Branch to use in requirement source links (default: $YATM_SOURCE_BRANCH,
+    /// then $GITHUB_BASE_REF, then the remote's default branch origin/HEAD, then main)
+    #[clap(long, global = true)]
+    pub source_branch: Option<String>,
 }
 
 // Define the top-level subcommands
@@ -220,6 +225,10 @@ enum GithubUtilsSubcommands {
 
 pub async fn cli() -> Result<()> {
     let app = App::parse();
+    if let Some(branch) = &app.source_branch {
+        // Read by helpers::get_git_info when building requirement source links.
+        std::env::set_var(SOURCE_BRANCH_ENV, branch);
+    }
     match app.command {
         Commands::Init { path } => {
             init_workspace(&path)?;
@@ -799,7 +808,8 @@ mod test_cli {
             .assert()
             .success()
             .stdout(predicate::str::contains("--show-diff"))
-            .stdout(predicate::str::contains("--dry-run"));
+            .stdout(predicate::str::contains("--dry-run"))
+            .stdout(predicate::str::contains("--source-branch"));
     }
 
     #[test]

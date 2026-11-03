@@ -70,6 +70,57 @@ mod test_validate_requirement {
     }
 
     #[test]
+    fn test_select_source_branch_priority() {
+        let s = |v: &str| Some(v.to_string());
+        assert_eq!(select_source_branch(s("rel"), s("base"), s("dflt")), "rel");
+        assert_eq!(select_source_branch(s("  "), s("base"), s("dflt")), "base");
+        assert_eq!(select_source_branch(None, s(""), s("dflt")), "dflt");
+        assert_eq!(select_source_branch(None, None, None), "main");
+    }
+
+    #[test]
+    fn test_origin_default_branch_ignores_checked_out_branch() {
+        let dir = tempdir().unwrap();
+        let run = |args: &[&str]| {
+            let status = Command::new("git")
+                .args(args)
+                .current_dir(dir.path())
+                .env("GIT_AUTHOR_NAME", "t")
+                .env("GIT_AUTHOR_EMAIL", "t@example.com")
+                .env("GIT_COMMITTER_NAME", "t")
+                .env("GIT_COMMITTER_EMAIL", "t@example.com")
+                .output()
+                .unwrap();
+            assert!(
+                status.status.success(),
+                "git {:?} failed: {:?}",
+                args,
+                status
+            );
+        };
+        run(&["init", "-q", "-b", "feature_branch"]);
+        run(&["commit", "-q", "--allow-empty", "-m", "init"]);
+        run(&["update-ref", "refs/remotes/origin/develop", "HEAD"]);
+        run(&[
+            "symbolic-ref",
+            "refs/remotes/origin/HEAD",
+            "refs/remotes/origin/develop",
+        ]);
+        assert_eq!(
+            get_origin_default_branch(dir.path()),
+            Some("develop".to_string())
+        );
+
+        let no_remote = tempdir().unwrap();
+        Command::new("git")
+            .args(&["init", "-q"])
+            .current_dir(no_remote.path())
+            .output()
+            .unwrap();
+        assert_eq!(get_origin_default_branch(no_remote.path()), None);
+    }
+
+    #[test]
     fn test_find_line_number() {
         let content = "requirements:\n  - name: First Requirement\n    labels:\n      - test\n  - name: Second Requirement";
         assert_eq!(find_line_number(content, "First Requirement"), Some(2));
@@ -193,6 +244,56 @@ pub fn get_web_browsing_link(
     }
 }
 
+/// Environment variable overriding the branch used for requirement source links.
+pub const SOURCE_BRANCH_ENV: &str = "YATM_SOURCE_BRANCH";
+
+fn non_empty(value: Option<String>) -> Option<String> {
+    value
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+}
+
+/// Choose the branch to link requirement sources to, in priority order:
+/// 1. explicit override (`--source-branch` / `YATM_SOURCE_BRANCH`)
+/// 2. `GITHUB_BASE_REF` (the target branch of a GitHub Actions pull request)
+/// 3. the remote's default branch (`origin/HEAD`)
+/// 4. `main`
+///
+/// The currently checked-out branch is intentionally *not* used, so that links
+/// point at the branch the requirements will land on rather than a feature branch.
+fn select_source_branch(
+    override_branch: Option<String>,
+    github_base_ref: Option<String>,
+    origin_default: Option<String>,
+) -> String {
+    non_empty(override_branch)
+        .or_else(|| non_empty(github_base_ref))
+        .or_else(|| non_empty(origin_default))
+        .unwrap_or_else(|| "main".to_string())
+}
+
+/// Read the remote's default branch from the local `refs/remotes/origin/HEAD`
+/// (set by `git clone` or `git remote set-head origin --auto`), without network access.
+fn get_origin_default_branch(dir: &Path) -> Option<String> {
+    let output = Command::new("git")
+        .args(&[
+            "symbolic-ref",
+            "--quiet",
+            "--short",
+            "refs/remotes/origin/HEAD",
+        ])
+        .current_dir(dir)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let short = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    non_empty(Some(
+        short.strip_prefix("origin/").unwrap_or(&short).to_string(),
+    ))
+}
+
 pub fn get_git_info(path: &Path) -> Option<(String, String)> {
     let dir = path.parent().unwrap_or(path);
     let repo = Command::new("git")
@@ -209,19 +310,11 @@ pub fn get_git_info(path: &Path) -> Option<(String, String)> {
             }
         })?;
 
-    let branch = Command::new("git")
-        .args(&["rev-parse", "--abbrev-ref", "HEAD"])
-        .current_dir(dir)
-        .output()
-        .ok()
-        .and_then(|output| {
-            if output.status.success() {
-                Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
-            } else {
-                None
-            }
-        })
-        .unwrap_or_else(|| "main".to_string());
+    let branch = select_source_branch(
+        std::env::var(SOURCE_BRANCH_ENV).ok(),
+        std::env::var("GITHUB_BASE_REF").ok(),
+        get_origin_default_branch(dir),
+    );
 
     Some((repo, branch))
 }

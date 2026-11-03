@@ -16,6 +16,7 @@ pub use issue_diff::describe_issue_diff;
 pub use make_test_cases::make_test_cases;
 pub use requirements::{
     get_requirements_from_file, validate_requirements_file, validate_requirements_files,
+    SOURCE_BRANCH_ENV,
 };
 pub use test_case_to_markdown::{
     permutation_to_labels, project_version_to_label, test_case_to_markdown,
