@@ -81,6 +81,22 @@ YATM v2 is a rewrite of the [original YATM tool](https://github.com/audrow/yatm)
 
 1. In `config.yaml`, modify the `repo_owner` and `repo_name` to match your Github repository.
 
+    Optionally, you can also configure `yatm_v2` to automatically create/reconcile the target repository settings and collaborator permissions during `yatm_v2 github upload` (or `yatm_v2 github utils setup-repo`):
+
+    ```yaml
+    repo_settings:
+      create_if_missing: true
+      reapply_settings_after_creation: true # optional; defaults to true when repo_settings is present
+      private: true
+      description: Optional repository description
+      strict_collaborators: true # optional; defaults to false. When true, removes unlisted direct collaborators & invitations
+      collaborators:
+      - username: some-github-user
+        permission: admin # pull (or read), triage, push (or write), maintain, admin
+    ```
+
+    If `repo_settings` is omitted (`None`), repository settings and collaborators are never modified. When `repo_settings` is provided, `reapply_settings_after_creation` defaults to `true` and reapplies `private` / `description` as well as `collaborators` (and `strict_collaborators`, if enabled) on existing repositories on each run. `strict_collaborators` defaults to `false` so existing repositories without it never have collaborators removed. `yatm_v2 github preview` and `yatm_v2 github upload --dry-run` both work even before the target repository exists.
+
 1. Make sure that your workspace has access to your personal access token through the `GITHUB_TOKEN` environment variable.
 
     YATM v2 will look in the `.env` file in the root of your workspace for the `GITHUB_TOKEN` environment variable. This file should look like this:
