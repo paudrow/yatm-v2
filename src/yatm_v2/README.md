@@ -163,6 +163,8 @@ If you've gotten this far, you've successfully set up YATM v2 for your project. 
 
 1. Upload your test cases to Github with `yatm_v2 github upload`.
 
+    To see exactly why existing issues would be updated, preview with `yatm_v2 github upload --dry-run --show-diff`, which prints a unified diff (`-` GitHub, `+` local) of the title and body for each changed issue.
+
 1. Create a meta issue to direct your users and create a list of links to make it easier to find the test cases.
 
     ```bash
