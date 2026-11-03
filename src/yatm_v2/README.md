@@ -179,6 +179,10 @@ If you've gotten this far, you've successfully set up YATM v2 for your project. 
 
 1. Upload your test cases to Github with `yatm_v2 github upload`.
 
+    To see exactly why existing issues would be updated, preview with `yatm_v2 github upload --dry-run --show-diff`, which prints a unified diff (`-` GitHub, `+` local) of the title and body for each changed issue.
+
+    Requirement source links in issues point at the branch the requirements land on, not the currently checked-out branch. The branch is chosen from `--source-branch <branch>` (or `YATM_SOURCE_BRANCH`), then `GITHUB_BASE_REF` (pull request target in GitHub Actions), then the remote's default branch (`origin/HEAD`), and finally `main`. If `origin/HEAD` is not set locally, run `git remote set-head origin --auto`.
+
 1. Create a meta issue to direct your users and create a list of links to make it easier to find the test cases.
 
     ```bash

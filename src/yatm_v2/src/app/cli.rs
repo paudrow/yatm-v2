@@ -2,10 +2,11 @@ use crate::app::init_workspace::init_workspace;
 use crate::app::load_config::load_config;
 use crate::constants::YAML_EXTENSIONS;
 use crate::helpers::{
-    get_files, get_local_issues_matches, get_requirements_from_file, get_test_cases,
-    get_test_cases_builders_from_file, permutation_to_labels, project_version_to_label,
-    test_case_to_markdown, validate_requirements_file, validate_requirements_files,
-    validate_test_cases_builder_file, GithubIssueMatches, IssueMatchType,
+    describe_issue_diff, get_files, get_local_issues_matches, get_requirements_from_file,
+    get_test_cases, get_test_cases_builders_from_file, permutation_to_labels,
+    project_version_to_label, test_case_to_markdown, validate_requirements_file,
+    validate_requirements_files, validate_test_cases_builder_file, GithubIssueMatches,
+    IssueMatchType, SOURCE_BRANCH_ENV,
 };
 use crate::types::{Config, LocalIssue};
 use common::github::Github;
@@ -27,6 +28,11 @@ use octocrab::params::State;
 struct App {
     #[clap(subcommand)]
     pub command: Commands,
+
+    /// Branch to use in requirement source links (default: $YATM_SOURCE_BRANCH,
+    /// then $GITHUB_BASE_REF, then the remote's default branch origin/HEAD, then main)
+    #[clap(long, global = true)]
+    pub source_branch: Option<String>,
 }
 
 // Define the top-level subcommands
@@ -162,6 +168,10 @@ enum GithubSubcommands {
         /// Do not push things remotely
         #[clap(short = 'n', long)]
         dry_run: bool,
+
+        /// Print a unified diff (title and body) for each existing issue that would be updated
+        #[clap(short = 'd', long)]
+        show_diff: bool,
     },
     /// Utilities for Github
     Utils {
@@ -380,6 +390,10 @@ async fn ensure_repository_and_permissions(
 
 pub async fn cli() -> Result<()> {
     let app = App::parse();
+    if let Some(branch) = &app.source_branch {
+        // Read by helpers::get_git_info when building requirement source links.
+        std::env::set_var(SOURCE_BRANCH_ENV, branch);
+    }
     match app.command {
         Commands::Init { path } => {
             init_workspace(&path)?;
@@ -645,6 +659,7 @@ pub async fn cli() -> Result<()> {
             GithubSubcommands::Upload {
                 config_path,
                 dry_run,
+                show_diff,
             } => {
                 let config = load_config(&config_path)?;
 
@@ -740,11 +755,24 @@ pub async fn cli() -> Result<()> {
                 );
 
                 for m in &changed_issues {
+                    let github_issue = m.github_issue.as_ref().unwrap();
                     println!(
                         "Updating issue: {}, {}",
-                        m.local_issue.title,
-                        m.github_issue.as_ref().unwrap().html_url
+                        m.local_issue.title, github_issue.html_url
                     );
+                    if show_diff {
+                        let diff = describe_issue_diff(
+                            &github_issue.title,
+                            github_issue.body.as_deref().unwrap_or(""),
+                            &m.local_issue.title,
+                            &m.local_issue.text_body,
+                        );
+                        println!(
+                            "Diff for issue #{} (- github, + local):\n{}",
+                            github_issue.number,
+                            diff.trim_end()
+                        );
+                    }
                     if dry_run {
                         println!("Dry run skipping update.");
                     } else {
@@ -954,6 +982,17 @@ mod test_cli {
                 .success()
                 .stdout(predicate::str::contains("Usage"));
         }
+    }
+
+    #[test]
+    fn test_upload_help_lists_show_diff() {
+        let mut cmd = get_command();
+        cmd.args(&["github", "upload", "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("--show-diff"))
+            .stdout(predicate::str::contains("--dry-run"))
+            .stdout(predicate::str::contains("--source-branch"));
     }
 
     #[test]
