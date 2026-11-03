@@ -258,4 +258,65 @@ impl Github {
         }
         format!("{}\n\n{}", header, content)
     }
+
+    pub fn prepend_config_info(
+        &self,
+        content: &String,
+        config_path: &std::path::Path,
+        config_yaml: &str,
+        builders: &[crate::types::TestCasesBuilder],
+    ) -> Result<String> {
+        let mut header = format!(
+            "## Configuration\n\nConfig file: `{}`\n\n```yaml\n{}\n```\n",
+            config_path.display(),
+            config_yaml.trim()
+        );
+
+        header.push_str("\n## Applied Filters\n");
+        for builder in builders {
+            let filters_yaml = serde_yaml::to_string(&builder.set)
+                .context("Failed to serialize builder filters to yaml")?;
+            header.push_str(&format!(
+                "\n### {}\n\n```yaml\n{}\n```\n",
+                builder.name,
+                filters_yaml.trim()
+            ));
+        }
+
+        Ok(format!("{}\n\n{}", header, content))
+    }
+}
+
+#[cfg(test)]
+mod test_github {
+    use super::*;
+    use crate::types::TestCasesBuilder;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_prepend_github_info() {
+        let gh = Github::new(&"owner".to_string(), &"repo".to_string()).unwrap();
+        let content = "Body text".to_string();
+        let res = gh.prepend_github_info(&content);
+        assert!(res.contains("# Github Target"));
+        assert!(res.contains("repository: [owner/repo](https://github.com/owner/repo)"));
+        assert!(res.contains("Body text"));
+    }
+
+    #[test]
+    fn test_prepend_config_info() {
+        let gh = Github::new(&"owner".to_string(), &"repo".to_string()).unwrap();
+        let content = "Body text".to_string();
+        let config_path = PathBuf::from("config.yaml");
+        let config_yaml = "foo: bar";
+        let builders = vec![TestCasesBuilder::default()];
+        let res = gh
+            .prepend_config_info(&content, &config_path, config_yaml, &builders)
+            .unwrap();
+        assert!(res.contains("## Configuration"));
+        assert!(res.contains("config.yaml"));
+        assert!(res.contains("foo: bar"));
+        assert!(res.contains("## Applied Filters"));
+        assert!(res.contains("Body text"));
+    }
 }

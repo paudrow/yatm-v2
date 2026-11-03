@@ -18,4 +18,7 @@ pub use requirements::{
 pub use test_case_to_markdown::{
     permutation_to_labels, project_version_to_label, test_case_to_markdown,
 };
-pub use test_cases_builder::{get_test_cases_builders_from_file, validate_test_cases_builder_file};
+pub use test_cases_builder::{
+    get_test_cases_builders_from_file, get_test_cases_builders_from_files,
+    validate_test_cases_builder_file,
+};
