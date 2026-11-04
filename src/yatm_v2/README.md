@@ -81,6 +81,22 @@ YATM v2 is a rewrite of the [original YATM tool](https://github.com/audrow/yatm)
 
 1. In `config.yaml`, modify the `repo_owner` and `repo_name` to match your Github repository.
 
+    Optionally, you can also configure `yatm_v2` to automatically create/reconcile the target repository settings and collaborator permissions during `yatm_v2 github upload` (or `yatm_v2 github utils setup-repo`):
+
+    ```yaml
+    repo_settings:
+      create_if_missing: true
+      reapply_settings_after_creation: true # optional; defaults to true when repo_settings is present
+      private: true
+      description: Optional repository description
+      strict_collaborators: true # optional; defaults to false. When true, removes unlisted direct collaborators & invitations
+      collaborators:
+      - username: some-github-user
+        permission: admin # pull (or read), triage, push (or write), maintain, admin
+    ```
+
+    If `repo_settings` is omitted (`None`), repository settings and collaborators are never modified. When `repo_settings` is provided, `reapply_settings_after_creation` defaults to `true` and reapplies `private` / `description` as well as `collaborators` (and `strict_collaborators`, if enabled) on existing repositories on each run. `strict_collaborators` defaults to `false` so existing repositories without it never have collaborators removed. `yatm_v2 github preview` and `yatm_v2 github upload --dry-run` both work even before the target repository exists. When the repository is missing, `upload --dry-run` fails unless it could actually be created: `repo_settings.create_if_missing` must be `true`, and `GITHUB_TOKEN` must be allowed to create repositories in `repo_owner`. This is checked with a deliberately invalid (nameless) create request that GitHub rejects with `422` for authorized tokens, so nothing is created.
+
 1. Make sure that your workspace has access to your personal access token through the `GITHUB_TOKEN` environment variable.
 
     YATM v2 will look in the `.env` file in the root of your workspace for the `GITHUB_TOKEN` environment variable. This file should look like this:
@@ -162,6 +178,10 @@ If you've gotten this far, you've successfully set up YATM v2 for your project. 
 1. (Optional) Generate a preview of your test cases with `yatm_v2 github preview`.
 
 1. Upload your test cases to Github with `yatm_v2 github upload`.
+
+    To see exactly why existing issues would be updated, preview with `yatm_v2 github upload --dry-run --show-diff`, which prints a unified diff (`-` GitHub, `+` local) of the title and body for each changed issue.
+
+    Requirement source links in issues point at the branch the requirements land on, not the currently checked-out branch. The branch is chosen from `--source-branch <branch>` (or `YATM_SOURCE_BRANCH`), then `GITHUB_BASE_REF` (pull request target in GitHub Actions), then the remote's default branch (`origin/HEAD`), and finally `main`. If `origin/HEAD` is not set locally, run `git remote set-head origin --auto`.
 
 1. Create a meta issue to direct your users and create a list of links to make it easier to find the test cases.
 

@@ -1,4 +1,4 @@
-use common::types::GithubLabel;
+use common::types::{GithubLabel, GithubRepoSettings};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -8,6 +8,9 @@ pub struct Config {
     pub repo_owner: String,
     /// The name of the repository.
     pub repo_name: String,
+    /// Optional settings for creating/configuring the target repository.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repo_settings: Option<GithubRepoSettings>,
     /// The version of the workspace.
     pub workspace_version: String,
     /// The version of yatm_v2 to use.
@@ -36,6 +39,7 @@ impl Config {
             yatm_v2_version: version.to_string(),
             repo_name: "repo_name".to_string(),
             repo_owner: "repo_owner".to_string(),
+            repo_settings: None,
             requirements_dirs: vec![PathBuf::new().join(requirements_dir)],
             new_requirements_dir: PathBuf::new().join(requirements_dir),
             test_cases_builders_dirs: vec![PathBuf::new().join(test_cases_builder_dir)],
