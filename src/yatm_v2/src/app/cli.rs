@@ -242,66 +242,61 @@ async fn ensure_repository_and_permissions(
             return Ok(true);
         }
         if gh.get_repository_state().await?.is_none() {
-            println!(
-                "Dry run: Repository {}/{} does not exist; assuming no existing issues.",
-                config.repo_owner, config.repo_name
+            anyhow::bail!(
+                "Repository {}/{} does not exist and cannot be created automatically because the config has no repo_settings (set repo_settings.create_if_missing: true)",
+                config.repo_owner,
+                config.repo_name
             );
-            return Ok(false);
         }
         return Ok(true);
     };
 
     let remote_state = gh.get_repository_state().await?;
     let Some(remote_state) = remote_state else {
-        if dry_run {
-            if settings.create_if_missing {
-                let visibility = if settings.private {
-                    "private"
-                } else {
-                    "public"
-                };
-                println!(
-                    "Dry run: Repository {}/{} does not exist; would create {} repository.",
-                    config.repo_owner, config.repo_name, visibility
-                );
-                if !config.labels.is_empty() {
-                    println!(
-                        "Dry run: Would create {} configured labels in {}/{}.",
-                        config.labels.len(),
-                        config.repo_owner,
-                        config.repo_name
-                    );
-                }
-                for collaborator in &settings.collaborators {
-                    println!(
-                        "Dry run: Would grant '{}' '{}' permission on {}/{}.",
-                        collaborator.username,
-                        collaborator.permission,
-                        config.repo_owner,
-                        config.repo_name
-                    );
-                }
-                if settings.strict_collaborators {
-                    println!(
-                        "Dry run: strict_collaborators is enabled for {}/{}.",
-                        config.repo_owner, config.repo_name
-                    );
-                }
-            } else {
-                println!(
-                    "Dry run: Repository {}/{} does not exist (repo_settings.create_if_missing is false); assuming no existing issues.",
-                    config.repo_owner, config.repo_name
-                );
-            }
-            return Ok(false);
-        }
-
         if !settings.create_if_missing {
             anyhow::bail!(
                 "Repository {}/{} does not exist and repo_settings.create_if_missing is false",
                 config.repo_owner,
                 config.repo_name
             );
+        }
+
+        if dry_run {
+            // Fail validation now if the real run would be unable to create the repository.
+            gh.check_can_create_repository().await?;
+            let visibility = if settings.private {
+                "private"
+            } else {
+                "public"
+            };
+            println!(
+                "Dry run: Repository {}/{} does not exist; verified GITHUB_TOKEN can create it; would create {} repository.",
+                config.repo_owner, config.repo_name, visibility
+            );
+            if !config.labels.is_empty() {
+                println!(
+                    "Dry run: Would create {} configured labels in {}/{}.",
+                    config.labels.len(),
+                    config.repo_owner,
+                    config.repo_name
+                );
+            }
+            for collaborator in &settings.collaborators {
+                println!(
+                    "Dry run: Would grant '{}' '{}' permission on {}/{}.",
+                    collaborator.username,
+                    collaborator.permission,
+                    config.repo_owner,
+                    config.repo_name
+                );
+            }
+            if settings.strict_collaborators {
+                println!(
+                    "Dry run: strict_collaborators is enabled for {}/{}.",
+                    config.repo_owner, config.repo_name
+                );
+            }
+            return Ok(false);
         }
 
         println!(
@@ -689,7 +684,19 @@ pub async fn cli() -> Result<()> {
                 );
                 let repo_exists = ensure_repository_and_permissions(&gh, &config, dry_run).await?;
                 let github_issues = if repo_exists {
-                    gh.get_issues(Some(State::All)).await?
+                    gh.get_issues(Some(State::All)).await.with_context(|| {
+                        if config.repo_settings.is_none() {
+                            format!(
+                                "Could not read issues from {}/{}. If the repository does not exist, add repo_settings with create_if_missing: true so it can be created automatically.",
+                                config.repo_owner, config.repo_name
+                            )
+                        } else {
+                            format!(
+                                "Could not read issues from {}/{}",
+                                config.repo_owner, config.repo_name
+                            )
+                        }
+                    })?
                 } else {
                     Vec::new()
                 };
@@ -1308,7 +1315,8 @@ mod test_cli {
         assert!(preview_md.contains("strict_collaborators: true"));
         assert!(preview_md.contains("- `mgr-user` (`admin`)"));
 
-        // 2. Upload --dry-run should succeed even when target repo returns 404 Not Found
+        // 2. Upload --dry-run should succeed when target repo returns 404 Not Found,
+        //    as long as the token is allowed to create it (probe returns 422).
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
@@ -1316,6 +1324,21 @@ mod test_cli {
             let req = read_raw_http_request(&mut stream);
             assert!(req.starts_with("GET /repos/intrinsic-checklists/newhire-onboarding "));
             write_raw_http_response(&mut stream, "404 Not Found", r#"{"message":"Not Found"}"#);
+
+            // Permission probe: nameless create request must never create a repo.
+            let (mut stream, _) = listener.accept().unwrap();
+            let req = read_raw_http_request(&mut stream);
+            assert!(req.starts_with("POST /orgs/intrinsic-checklists/repos "));
+            assert!(
+                !req.contains("\"name\""),
+                "probe must not send a name: {}",
+                req
+            );
+            write_raw_http_response(
+                &mut stream,
+                "422 Unprocessable Entity",
+                r#"{"message":"Repository creation failed.","errors":[{"resource":"Repository","code":"missing_field","field":"name"}]}"#,
+            );
         });
 
         let mut cmd = get_command();
@@ -1331,12 +1354,97 @@ mod test_cli {
             .assert()
             .success()
             .stdout(predicate::str::contains(
-                "Dry run: Repository intrinsic-checklists/newhire-onboarding does not exist; would create private repository.",
+                "Dry run: Repository intrinsic-checklists/newhire-onboarding does not exist; verified GITHUB_TOKEN can create it; would create private repository.",
             ))
             .stdout(predicate::str::contains(
                 "Dry run: Would grant 'mgr-user' 'admin' permission on intrinsic-checklists/newhire-onboarding.",
             ))
             .stdout(predicate::str::contains("Done 🚀"));
+
+        server.join().unwrap();
+
+        // 3. Upload --dry-run must FAIL if the token is not allowed to create the repository.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let req = read_raw_http_request(&mut stream);
+            assert!(req.starts_with("GET /repos/intrinsic-checklists/newhire-onboarding "));
+            write_raw_http_response(&mut stream, "404 Not Found", r#"{"message":"Not Found"}"#);
+
+            let (mut stream, _) = listener.accept().unwrap();
+            let req = read_raw_http_request(&mut stream);
+            assert!(req.starts_with("POST /orgs/intrinsic-checklists/repos "));
+            use std::io::Write;
+            let body = r#"{"message":"Resource not accessible by integration"}"#;
+            let resp = format!(
+                "HTTP/1.1 403 Forbidden\r\nContent-Type: application/json\r\nX-Accepted-GitHub-Permissions: administration=write\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            stream.write_all(resp.as_bytes()).unwrap();
+        });
+
+        let mut cmd = get_command();
+        cmd.env("GITHUB_TOKEN", "fake-token")
+            .env("GITHUB_API_URL", format!("http://{}", addr))
+            .args(&[
+                "github",
+                "upload",
+                "--config-path",
+                dir.to_str().unwrap(),
+                "--dry-run",
+            ])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains(
+                "GITHUB_TOKEN is not allowed to create repositories in 'intrinsic-checklists'",
+            ))
+            .stderr(predicate::str::contains("administration=write"));
+
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn test_dry_run_fails_for_missing_repo_without_repo_settings() {
+        let dir = tempdir().unwrap().path().to_path_buf();
+
+        let mut cmd = get_command();
+        cmd.args(&["init", "--path", dir.to_str().unwrap()])
+            .assert()
+            .success();
+
+        let config_path = dir.join("config.yaml");
+        let config_str = std::fs::read_to_string(&config_path)
+            .unwrap()
+            .replace("repo_owner: repo_owner", "repo_owner: intrinsic-checklists")
+            .replace("repo_name: repo_name", "repo_name: legacy-onboarding");
+        std::fs::write(&config_path, config_str).unwrap();
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let req = read_raw_http_request(&mut stream);
+            assert!(req.starts_with("GET /repos/intrinsic-checklists/legacy-onboarding "));
+            write_raw_http_response(&mut stream, "404 Not Found", r#"{"message":"Not Found"}"#);
+        });
+
+        let mut cmd = get_command();
+        cmd.env("GITHUB_TOKEN", "fake-token")
+            .env("GITHUB_API_URL", format!("http://{}", addr))
+            .args(&[
+                "github",
+                "upload",
+                "--config-path",
+                dir.to_str().unwrap(),
+                "--dry-run",
+            ])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains(
+                "Repository intrinsic-checklists/legacy-onboarding does not exist and cannot be created automatically",
+            ));
 
         server.join().unwrap();
     }

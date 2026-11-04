@@ -280,6 +280,93 @@ impl Github {
         }
     }
 
+    /// Verify (without creating anything) that the token is allowed to create
+    /// repositories under `self.owner`.
+    ///
+    /// Sends a create-repository request with no `name`, which GitHub can never
+    /// fulfil: an authorized token receives `422 Unprocessable Entity`
+    /// (validation failed), while an unauthorized one receives 401/403/404.
+    /// Falls back to `/user/repos` when the owner is the authenticated user.
+    pub async fn check_can_create_repository(&self) -> Result<()> {
+        let crab = self.get_octocrab()?;
+        let org_route = format!("/orgs/{}/repos", self.owner);
+        match self.probe_create_route(crab, &org_route).await? {
+            None => return Ok(()),
+            Some((404, _)) => {
+                if let std::result::Result::Ok(user) = crab.current().user().await {
+                    if user.login.eq_ignore_ascii_case(&self.owner) {
+                        return match self.probe_create_route(crab, "/user/repos").await? {
+                            None => Ok(()),
+                            Some((_, detail)) => Err(anyhow!(
+                                "GITHUB_TOKEN cannot create repositories for user '{}': {}",
+                                self.owner,
+                                detail
+                            )),
+                        };
+                    }
+                }
+                anyhow::bail!(
+                    "Cannot create {}/{}: organization '{}' was not found or GITHUB_TOKEN has no access to it",
+                    self.owner,
+                    self.repo,
+                    self.owner
+                )
+            }
+            Some((_, detail)) => anyhow::bail!(
+                "GITHUB_TOKEN is not allowed to create repositories in '{}' (needed to create {}/{}): {}. \
+                 It needs repository 'Administration: Read and write' permission on '{}'.",
+                self.owner,
+                self.owner,
+                self.repo,
+                detail,
+                self.owner
+            ),
+        }
+    }
+
+    /// POST an intentionally invalid (nameless) create-repository request.
+    /// Returns `None` if the request reached validation (422, i.e. permitted),
+    /// otherwise `Some((status, detail))` describing why it was rejected.
+    async fn probe_create_route(
+        &self,
+        crab: &Octocrab,
+        route: &str,
+    ) -> Result<Option<(u16, String)>> {
+        #[derive(Serialize)]
+        struct EmptyBody {}
+
+        let response = crab._post(route, Some(&EmptyBody {})).await?;
+        let status = response.status().as_u16();
+        if status == 422 {
+            return Ok(None);
+        }
+        if response.status().is_success() {
+            anyhow::bail!(
+                "Unexpected HTTP {} from POST {} while checking repository creation permission",
+                status,
+                route
+            );
+        }
+        let accepted_permissions = response
+            .headers()
+            .get("x-accepted-github-permissions")
+            .and_then(|v| v.to_str().ok())
+            .map(|v| v.to_string());
+        let message = match octocrab::map_github_error(response).await {
+            Err(octocrab::Error::GitHub { source, .. }) => source.message,
+            Err(err) => err.to_string(),
+            std::result::Result::Ok(_) => String::new(),
+        };
+        let detail = match accepted_permissions {
+            Some(perms) => format!(
+                "HTTP {} {} (required permissions: {})",
+                status, message, perms
+            ),
+            None => format!("HTTP {} {}", status, message),
+        };
+        Ok(Some((status, detail)))
+    }
+
     pub async fn add_collaborator(&self, collaborator: &GithubCollaborator) -> Result<()> {
         let encoded_username =
             percent_encoding::utf8_percent_encode(&collaborator.username, USERNAME_ENCODE_SET);
@@ -966,6 +1053,85 @@ mod tests {
         assert_eq!(invites[0].id, 77);
         gh.delete_invitation(77, "stale-invitee").await.unwrap();
 
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_check_can_create_repository_org_and_user_fallback() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let server = tokio::spawn(async move {
+            // Org probe returns 404 (owner is a user, not an org)
+            let (mut s, _) = listener.accept().await.unwrap();
+            let req = read_http_request(&mut s).await;
+            assert!(req.starts_with("POST /orgs/jdoe/repos "));
+            assert!(!req.contains("\"name\""));
+            send_http_response(&mut s, "404 Not Found", r#"{"message":"Not Found"}"#).await;
+
+            // Authenticated user lookup
+            let (mut s, _) = listener.accept().await.unwrap();
+            let req = read_http_request(&mut s).await;
+            assert!(req.starts_with("GET /user "));
+            let user = r#"{"login":"jdoe","id":1,"node_id":"U_1","avatar_url":"https://x/a","gravatar_id":"","url":"https://x/u","html_url":"https://x/h","followers_url":"https://x/f","following_url":"https://x/g","gists_url":"https://x/gi","starred_url":"https://x/s","subscriptions_url":"https://x/su","organizations_url":"https://x/o","repos_url":"https://x/r","events_url":"https://x/e","received_events_url":"https://x/re","type":"User","site_admin":false}"#;
+            send_http_response(&mut s, "200 OK", user).await;
+
+            // User probe reaches validation => permitted
+            let (mut s, _) = listener.accept().await.unwrap();
+            let req = read_http_request(&mut s).await;
+            assert!(req.starts_with("POST /user/repos "));
+            send_http_response(
+                &mut s,
+                "422 Unprocessable Entity",
+                r#"{"message":"Repository creation failed."}"#,
+            )
+            .await;
+        });
+
+        let gh = Github::new_with_options(
+            "jdoe",
+            "jdoe-onboarding",
+            Some("test-token".to_string()),
+            Some(format!("http://{}", addr)),
+        )
+        .unwrap();
+        gh.check_can_create_repository().await.unwrap();
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_check_can_create_repository_forbidden() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let server = tokio::spawn(async move {
+            let (mut s, _) = listener.accept().await.unwrap();
+            let req = read_http_request(&mut s).await;
+            assert!(req.starts_with("POST /orgs/intrinsic-checklists/repos "));
+            send_http_response(
+                &mut s,
+                "403 Forbidden",
+                r#"{"message":"You need admin access to the organization before adding a repository to it."}"#,
+            )
+            .await;
+        });
+
+        let gh = Github::new_with_options(
+            "intrinsic-checklists",
+            "jdoe-onboarding",
+            Some("test-token".to_string()),
+            Some(format!("http://{}", addr)),
+        )
+        .unwrap();
+        let err = gh.check_can_create_repository().await.unwrap_err();
+        let msg = format!("{:#}", err);
+        assert!(
+            msg.contains("not allowed to create repositories in 'intrinsic-checklists'"),
+            "{}",
+            msg
+        );
+        assert!(msg.contains("HTTP 403"), "{}", msg);
+        assert!(msg.contains("need admin access"), "{}", msg);
         server.await.unwrap();
     }
 }
