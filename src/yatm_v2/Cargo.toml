@@ -20,6 +20,7 @@ percent-encoding = "2.3.1"
 predicates = "3.1.4"
 serde = { version = "1.0.218", features = ["derive"] }
 serde_yaml = "0.9.31"
+similar = "3.2.1"
 tempfile = "3.27.0"
 tokio = { version = "1.52.1", features = ["full"] }
 url = "2.5.0"
