@@ -8,7 +8,7 @@ use crate::helpers::{
     validate_requirements_files, validate_test_cases_builder_file, GithubIssueMatches,
     IssueMatchType, SOURCE_BRANCH_ENV,
 };
-use crate::types::LocalIssue;
+use crate::types::{Config, LocalIssue};
 use common::github::Github;
 use common::markdown_toc::{prepend_markdown_table_of_contents, TocOptions};
 use common::types::{Link, RequirementsFile, TestCasesBuilderFile};
@@ -221,6 +221,166 @@ enum GithubUtilsSubcommands {
         #[clap(short, long, default_value = ".")]
         config_path: PathBuf,
     },
+    /// Create the target repository (if configured) and reconcile collaborator permissions
+    SetupRepo {
+        /// The path to the project
+        #[clap(short, long, default_value = ".")]
+        config_path: PathBuf,
+        /// Do not push things remotely
+        #[clap(short = 'n', long)]
+        dry_run: bool,
+    },
+}
+
+async fn ensure_repository_and_permissions(
+    gh: &Github,
+    config: &Config,
+    dry_run: bool,
+) -> Result<bool> {
+    let Some(settings) = &config.repo_settings else {
+        if !dry_run {
+            return Ok(true);
+        }
+        if gh.get_repository_state().await?.is_none() {
+            anyhow::bail!(
+                "Repository {}/{} does not exist and cannot be created automatically because the config has no repo_settings (set repo_settings.create_if_missing: true)",
+                config.repo_owner,
+                config.repo_name
+            );
+        }
+        return Ok(true);
+    };
+
+    let remote_state = gh.get_repository_state().await?;
+    let Some(remote_state) = remote_state else {
+        if !settings.create_if_missing {
+            anyhow::bail!(
+                "Repository {}/{} does not exist and repo_settings.create_if_missing is false",
+                config.repo_owner,
+                config.repo_name
+            );
+        }
+
+        if dry_run {
+            // Fail validation now if the real run would be unable to create the repository.
+            gh.check_can_create_repository().await?;
+            let visibility = if settings.private {
+                "private"
+            } else {
+                "public"
+            };
+            println!(
+                "Dry run: Repository {}/{} does not exist; verified GITHUB_TOKEN can create it; would create {} repository.",
+                config.repo_owner, config.repo_name, visibility
+            );
+            if !config.labels.is_empty() {
+                println!(
+                    "Dry run: Would create {} configured labels in {}/{}.",
+                    config.labels.len(),
+                    config.repo_owner,
+                    config.repo_name
+                );
+            }
+            for collaborator in &settings.collaborators {
+                println!(
+                    "Dry run: Would grant '{}' '{}' permission on {}/{}.",
+                    collaborator.username,
+                    collaborator.permission,
+                    config.repo_owner,
+                    config.repo_name
+                );
+            }
+            if settings.strict_collaborators {
+                println!(
+                    "Dry run: strict_collaborators is enabled for {}/{}.",
+                    config.repo_owner, config.repo_name
+                );
+            }
+            return Ok(false);
+        }
+
+        println!(
+            "Repository {}/{} not found. Creating...",
+            config.repo_owner, config.repo_name
+        );
+        gh.create_repository(settings).await?;
+        if !config.labels.is_empty() {
+            gh.create_labels(config.labels.clone()).await?;
+        }
+        for collaborator in &settings.collaborators {
+            gh.add_collaborator(collaborator).await?;
+        }
+        return Ok(true);
+    };
+
+    if !settings.reapply_settings_after_creation {
+        return Ok(true);
+    }
+
+    if !Github::settings_match(&remote_state, settings) {
+        if dry_run {
+            println!(
+                "Dry run: Repository settings for {}/{} do not match config; would update settings.",
+                config.repo_owner, config.repo_name
+            );
+        } else {
+            gh.update_repository_settings(settings).await?;
+        }
+    }
+
+    for collaborator in &settings.collaborators {
+        if dry_run {
+            println!(
+                "Dry run: Would ensure '{}' has '{}' permission on {}/{}.",
+                collaborator.username, collaborator.permission, config.repo_owner, config.repo_name
+            );
+        } else {
+            gh.add_collaborator(collaborator).await?;
+        }
+    }
+
+    if settings.strict_collaborators {
+        let allowed: HashSet<String> = settings
+            .collaborators
+            .iter()
+            .map(|c| c.username.to_ascii_lowercase())
+            .collect();
+
+        let direct_collaborators = gh.list_direct_collaborators().await?;
+        for existing in direct_collaborators {
+            if existing.login.eq_ignore_ascii_case(&config.repo_owner) {
+                continue;
+            }
+            if !allowed.contains(&existing.login.to_ascii_lowercase()) {
+                if dry_run {
+                    println!(
+                        "Dry run: Would remove unlisted collaborator '{}' from {}/{}.",
+                        existing.login, config.repo_owner, config.repo_name
+                    );
+                } else {
+                    gh.remove_collaborator(&existing.login).await?;
+                }
+            }
+        }
+
+        let pending_invitations = gh.list_pending_invitations().await?;
+        for invitation in pending_invitations {
+            if let Some(invitee) = invitation.invitee {
+                if !allowed.contains(&invitee.login.to_ascii_lowercase()) {
+                    if dry_run {
+                        println!(
+                            "Dry run: Would revoke pending invitation for '{}' on {}/{}.",
+                            invitee.login, config.repo_owner, config.repo_name
+                        );
+                    } else {
+                        gh.delete_invitation(invitation.id, &invitee.login).await?;
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(true)
 }
 
 pub async fn cli() -> Result<()> {
@@ -465,7 +625,10 @@ pub async fn cli() -> Result<()> {
                     prepend_markdown_table_of_contents(&file_contents, Some(&toc_options));
                 let gh = Github::new(&config.repo_owner, &config.repo_name)?;
 
-                file_contents = gh.prepend_github_info(&file_contents);
+                file_contents = gh.prepend_github_info_with_settings(
+                    &file_contents,
+                    config.repo_settings.as_ref(),
+                );
 
                 // Write the test cases to a file
                 let datetime_string = chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
@@ -513,13 +676,30 @@ pub async fn cli() -> Result<()> {
                 let local_issues_count = local_issues.len();
                 println!("{} test cases total", local_issues_count);
 
-                // Get the issues from Github
+                // Ensure the target repository and permissions are configured, then fetch issues
                 let gh = Github::new(&config.repo_owner, &config.repo_name)?;
                 println!(
                     "Connecting to repository: {}/{}",
                     config.repo_owner, config.repo_name
                 );
-                let github_issues = gh.get_issues(Some(State::All)).await?;
+                let repo_exists = ensure_repository_and_permissions(&gh, &config, dry_run).await?;
+                let github_issues = if repo_exists {
+                    gh.get_issues(Some(State::All)).await.with_context(|| {
+                        if config.repo_settings.is_none() {
+                            format!(
+                                "Could not read issues from {}/{}. If the repository does not exist, add repo_settings with create_if_missing: true so it can be created automatically.",
+                                config.repo_owner, config.repo_name
+                            )
+                        } else {
+                            format!(
+                                "Could not read issues from {}/{}",
+                                config.repo_owner, config.repo_name
+                            )
+                        }
+                    })?
+                } else {
+                    Vec::new()
+                };
 
                 let matched_issues = get_local_issues_matches(&local_issues, &github_issues);
                 for i in &matched_issues {
@@ -762,6 +942,16 @@ pub async fn cli() -> Result<()> {
                         let gh = Github::new(&config.repo_owner, &config.repo_name)?;
 
                         gh.create_labels(config.labels).await?;
+                        println!("Done 🚀");
+                    }
+                    GithubUtilsSubcommands::SetupRepo {
+                        config_path,
+                        dry_run,
+                    } => {
+                        let config = load_config(&config_path)?;
+                        let gh = Github::new(&config.repo_owner, &config.repo_name)?;
+
+                        ensure_repository_and_permissions(&gh, &config, dry_run).await?;
                         println!("Done 🚀");
                     }
                 }
@@ -1042,5 +1232,517 @@ mod test_cli {
         .assert()
         .success();
         assert_eq!(get_number_of_files_in_dir(&config.generated_files_dir), 2);
+    }
+
+    fn read_raw_http_request(stream: &mut std::net::TcpStream) -> String {
+        use std::io::Read;
+        let mut buf = Vec::new();
+        let mut chunk = [0u8; 4096];
+        loop {
+            let n = stream.read(&mut chunk).unwrap();
+            if n == 0 {
+                break;
+            }
+            buf.extend_from_slice(&chunk[..n]);
+            if let Some(header_end) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
+                let headers = String::from_utf8_lossy(&buf[..header_end]);
+                let content_len = headers
+                    .lines()
+                    .find_map(|line| {
+                        let lower = line.to_ascii_lowercase();
+                        lower
+                            .strip_prefix("content-length:")
+                            .and_then(|v| v.trim().parse::<usize>().ok())
+                    })
+                    .unwrap_or(0);
+                if buf.len() >= header_end + 4 + content_len {
+                    break;
+                }
+            }
+        }
+        String::from_utf8_lossy(&buf).to_string()
+    }
+
+    fn write_raw_http_response(stream: &mut std::net::TcpStream, status: &str, body: &str) {
+        use std::io::Write;
+        let resp = format!(
+            "HTTP/1.1 {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            status,
+            body.len(),
+            body
+        );
+        stream.write_all(resp.as_bytes()).unwrap();
+    }
+
+    #[test]
+    fn test_preview_and_dry_run_when_repo_missing() {
+        let dir = tempdir().unwrap().path().to_path_buf();
+
+        let mut cmd = get_command();
+        cmd.args(&["init", "--path", dir.to_str().unwrap()])
+            .assert()
+            .success();
+
+        // Update config with repo_settings and collaborators
+        let config_path = dir.join("config.yaml");
+        let mut config_str = std::fs::read_to_string(&config_path).unwrap();
+        config_str = config_str
+            .replace("repo_owner: repo_owner", "repo_owner: intrinsic-checklists")
+            .replace("repo_name: repo_name", "repo_name: newhire-onboarding");
+        config_str.push_str(
+            "\nrepo_settings:\n  create_if_missing: true\n  private: true\n  description: Onboarding checklist\n  strict_collaborators: true\n  collaborators:\n  - username: mgr-user\n    permission: admin\n",
+        );
+        std::fs::write(&config_path, config_str).unwrap();
+
+        // 1. Preview should succeed completely offline without GITHUB_TOKEN and render settings
+        let mut cmd = get_command();
+        cmd.env_remove("GITHUB_TOKEN")
+            .args(&["github", "preview", "--config-path", dir.to_str().unwrap()])
+            .assert()
+            .success();
+
+        let config = load_config(&dir).unwrap();
+        let preview_file = std::fs::read_dir(&config.generated_files_dir)
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        let preview_md = std::fs::read_to_string(preview_file).unwrap();
+        assert!(preview_md.contains(
+            "repo_settings: create_if_missing=true, reapply_settings_after_creation=true, visibility=private"
+        ));
+        assert!(preview_md.contains("strict_collaborators: true"));
+        assert!(preview_md.contains("- `mgr-user` (`admin`)"));
+
+        // 2. Upload --dry-run should succeed when target repo returns 404 Not Found,
+        //    as long as the token is allowed to create it (probe returns 422).
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let req = read_raw_http_request(&mut stream);
+            assert!(req.starts_with("GET /repos/intrinsic-checklists/newhire-onboarding "));
+            write_raw_http_response(&mut stream, "404 Not Found", r#"{"message":"Not Found"}"#);
+
+            // Permission probe: nameless create request must never create a repo.
+            let (mut stream, _) = listener.accept().unwrap();
+            let req = read_raw_http_request(&mut stream);
+            assert!(req.starts_with("POST /orgs/intrinsic-checklists/repos "));
+            assert!(
+                !req.contains("\"name\""),
+                "probe must not send a name: {}",
+                req
+            );
+            write_raw_http_response(
+                &mut stream,
+                "422 Unprocessable Entity",
+                r#"{"message":"Repository creation failed.","errors":[{"resource":"Repository","code":"missing_field","field":"name"}]}"#,
+            );
+        });
+
+        let mut cmd = get_command();
+        cmd.env("GITHUB_TOKEN", "fake-token")
+            .env("GITHUB_API_URL", format!("http://{}", addr))
+            .args(&[
+                "github",
+                "upload",
+                "--config-path",
+                dir.to_str().unwrap(),
+                "--dry-run",
+            ])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(
+                "Dry run: Repository intrinsic-checklists/newhire-onboarding does not exist; verified GITHUB_TOKEN can create it; would create private repository.",
+            ))
+            .stdout(predicate::str::contains(
+                "Dry run: Would grant 'mgr-user' 'admin' permission on intrinsic-checklists/newhire-onboarding.",
+            ))
+            .stdout(predicate::str::contains("Done 🚀"));
+
+        server.join().unwrap();
+
+        // 3. Upload --dry-run must FAIL if the token is not allowed to create the repository.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let req = read_raw_http_request(&mut stream);
+            assert!(req.starts_with("GET /repos/intrinsic-checklists/newhire-onboarding "));
+            write_raw_http_response(&mut stream, "404 Not Found", r#"{"message":"Not Found"}"#);
+
+            let (mut stream, _) = listener.accept().unwrap();
+            let req = read_raw_http_request(&mut stream);
+            assert!(req.starts_with("POST /orgs/intrinsic-checklists/repos "));
+            use std::io::Write;
+            let body = r#"{"message":"Resource not accessible by integration"}"#;
+            let resp = format!(
+                "HTTP/1.1 403 Forbidden\r\nContent-Type: application/json\r\nX-Accepted-GitHub-Permissions: administration=write\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            stream.write_all(resp.as_bytes()).unwrap();
+        });
+
+        let mut cmd = get_command();
+        cmd.env("GITHUB_TOKEN", "fake-token")
+            .env("GITHUB_API_URL", format!("http://{}", addr))
+            .args(&[
+                "github",
+                "upload",
+                "--config-path",
+                dir.to_str().unwrap(),
+                "--dry-run",
+            ])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains(
+                "GITHUB_TOKEN is not allowed to create repositories in 'intrinsic-checklists'",
+            ))
+            .stderr(predicate::str::contains("administration=write"));
+
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn test_dry_run_fails_for_missing_repo_without_repo_settings() {
+        let dir = tempdir().unwrap().path().to_path_buf();
+
+        let mut cmd = get_command();
+        cmd.args(&["init", "--path", dir.to_str().unwrap()])
+            .assert()
+            .success();
+
+        let config_path = dir.join("config.yaml");
+        let config_str = std::fs::read_to_string(&config_path)
+            .unwrap()
+            .replace("repo_owner: repo_owner", "repo_owner: intrinsic-checklists")
+            .replace("repo_name: repo_name", "repo_name: legacy-onboarding");
+        std::fs::write(&config_path, config_str).unwrap();
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let req = read_raw_http_request(&mut stream);
+            assert!(req.starts_with("GET /repos/intrinsic-checklists/legacy-onboarding "));
+            write_raw_http_response(&mut stream, "404 Not Found", r#"{"message":"Not Found"}"#);
+        });
+
+        let mut cmd = get_command();
+        cmd.env("GITHUB_TOKEN", "fake-token")
+            .env("GITHUB_API_URL", format!("http://{}", addr))
+            .args(&[
+                "github",
+                "upload",
+                "--config-path",
+                dir.to_str().unwrap(),
+                "--dry-run",
+            ])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains(
+                "Repository intrinsic-checklists/legacy-onboarding does not exist and cannot be created automatically",
+            ));
+
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn test_setup_repo_creates_missing_repo_and_grants_collaborator() {
+        let dir = tempdir().unwrap().path().to_path_buf();
+
+        let mut cmd = get_command();
+        cmd.args(&["init", "--path", dir.to_str().unwrap()])
+            .assert()
+            .success();
+
+        let config_path = dir.join("config.yaml");
+        let config_yaml = r#"repo_owner: intrinsic-checklists
+repo_name: newhire-onboarding
+repo_settings:
+  create_if_missing: true
+  private: true
+  description: Onboarding checklist
+  collaborators:
+  - username: mgr-user
+    permission: admin
+workspace_version: 0.0.1
+yatm_v2_version: 1.0.0
+requirements_dirs:
+- requirements
+test_cases_builders_dirs:
+- test_cases_builders
+new_requirements_dir: requirements
+new_test_cases_builder_dir: test_cases_builders
+generated_files_dir: generated_files
+labels: []
+"#;
+        std::fs::write(&config_path, config_yaml).unwrap();
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            // 1. GET /repos/intrinsic-checklists/newhire-onboarding -> 404
+            let (mut s1, _) = listener.accept().unwrap();
+            let req1 = read_raw_http_request(&mut s1);
+            assert!(req1.starts_with("GET /repos/intrinsic-checklists/newhire-onboarding "));
+            write_raw_http_response(&mut s1, "404 Not Found", r#"{"message":"Not Found"}"#);
+
+            // 2. POST /orgs/intrinsic-checklists/repos -> 201
+            let (mut s2, _) = listener.accept().unwrap();
+            let req2 = read_raw_http_request(&mut s2);
+            assert!(req2.starts_with("POST /orgs/intrinsic-checklists/repos "));
+            assert!(req2.contains(r#""name":"newhire-onboarding""#));
+            write_raw_http_response(&mut s2, "201 Created", r#"{"id":1}"#);
+
+            // 3. GET /repos/intrinsic-checklists/newhire-onboarding -> 200
+            let (mut s3, _) = listener.accept().unwrap();
+            let req3 = read_raw_http_request(&mut s3);
+            assert!(req3.starts_with("GET /repos/intrinsic-checklists/newhire-onboarding "));
+            write_raw_http_response(&mut s3, "200 OK", r#"{"id":1}"#);
+
+            // 4. PUT /repos/intrinsic-checklists/newhire-onboarding/collaborators/mgr-user -> 201
+            let (mut s4, _) = listener.accept().unwrap();
+            let req4 = read_raw_http_request(&mut s4);
+            assert!(req4.starts_with(
+                "PUT /repos/intrinsic-checklists/newhire-onboarding/collaborators/mgr-user "
+            ));
+            write_raw_http_response(&mut s4, "201 Created", r#"{"id":42}"#);
+        });
+
+        let mut cmd = get_command();
+        cmd.env("GITHUB_TOKEN", "fake-token")
+            .env("GITHUB_API_URL", format!("http://{}", addr))
+            .args(&[
+                "github",
+                "utils",
+                "setup-repo",
+                "--config-path",
+                dir.to_str().unwrap(),
+            ])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(
+                "Created private repository intrinsic-checklists/newhire-onboarding",
+            ))
+            .stdout(predicate::str::contains(
+                "Invited 'mgr-user' with 'admin' permission to intrinsic-checklists/newhire-onboarding",
+            ))
+            .stdout(predicate::str::contains("Done 🚀"));
+
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn test_existing_repo_without_repo_settings_makes_no_admin_changes() {
+        let dir = tempdir().unwrap().path().to_path_buf();
+
+        let mut cmd = get_command();
+        cmd.args(&["init", "--path", dir.to_str().unwrap()])
+            .assert()
+            .success();
+
+        // Legacy config: no repo_settings and no collaborators.
+        // Bind a listener that panics if ANY admin/repo HTTP call is made during setup-repo!
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let mut cmd = get_command();
+        cmd.env("GITHUB_TOKEN", "fake-token")
+            .env("GITHUB_API_URL", format!("http://{}", addr))
+            .args(&[
+                "github",
+                "utils",
+                "setup-repo",
+                "--config-path",
+                dir.to_str().unwrap(),
+            ])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("Done 🚀"));
+
+        listener.set_nonblocking(true).unwrap();
+        assert!(
+            listener.accept().is_err(),
+            "Expected zero administrative API calls when repo_settings and collaborators are unset"
+        );
+    }
+
+    #[test]
+    fn test_reapply_settings_after_creation_and_strict_collaborators() {
+        let dir = tempdir().unwrap().path().to_path_buf();
+
+        let mut cmd = get_command();
+        cmd.args(&["init", "--path", dir.to_str().unwrap()])
+            .assert()
+            .success();
+
+        let config_path = dir.join("config.yaml");
+        let config_yaml = r#"repo_owner: intrinsic-checklists
+repo_name: newhire-onboarding
+repo_settings:
+  create_if_missing: true
+  private: true
+  description: Onboarding checklist
+  strict_collaborators: true
+  collaborators:
+  - username: Mgr-User
+    permission: admin
+workspace_version: 0.0.1
+yatm_v2_version: 1.0.0
+requirements_dirs:
+- requirements
+test_cases_builders_dirs:
+- test_cases_builders
+new_requirements_dir: requirements
+new_test_cases_builder_dir: test_cases_builders
+generated_files_dir: generated_files
+labels: []
+"#;
+        std::fs::write(&config_path, config_yaml).unwrap();
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            // 1. GET /repos/intrinsic-checklists/newhire-onboarding -> mismatched settings
+            let (mut s1, _) = listener.accept().unwrap();
+            let req1 = read_raw_http_request(&mut s1);
+            assert!(req1.starts_with("GET /repos/intrinsic-checklists/newhire-onboarding "));
+            write_raw_http_response(
+                &mut s1,
+                "200 OK",
+                r#"{"id":1,"private":false,"description":"Outdated description"}"#,
+            );
+
+            // 2. PATCH /repos/intrinsic-checklists/newhire-onboarding -> updates settings
+            let (mut s2, _) = listener.accept().unwrap();
+            let req2 = read_raw_http_request(&mut s2);
+            assert!(req2.starts_with("PATCH /repos/intrinsic-checklists/newhire-onboarding "));
+            assert!(req2.contains(r#""private":true"#));
+            assert!(req2.contains(r#""description":"Onboarding checklist""#));
+            write_raw_http_response(
+                &mut s2,
+                "200 OK",
+                r#"{"id":1,"private":true,"description":"Onboarding checklist"}"#,
+            );
+
+            // 3. PUT /repos/intrinsic-checklists/newhire-onboarding/collaborators/Mgr-User
+            let (mut s3, _) = listener.accept().unwrap();
+            let req3 = read_raw_http_request(&mut s3);
+            assert!(req3.starts_with(
+                "PUT /repos/intrinsic-checklists/newhire-onboarding/collaborators/Mgr-User "
+            ));
+            write_raw_http_response(&mut s3, "204 No Content", "");
+
+            // 4. GET direct collaborators -> mgr-user (diff case) kept, unlisted-user removed
+            let (mut s4, _) = listener.accept().unwrap();
+            let req4 = read_raw_http_request(&mut s4);
+            assert!(req4.starts_with(
+                "GET /repos/intrinsic-checklists/newhire-onboarding/collaborators?affiliation=direct&per_page=100&page=1 "
+            ));
+            write_raw_http_response(
+                &mut s4,
+                "200 OK",
+                r#"[{"login":"mgr-user"},{"login":"unlisted-user"}]"#,
+            );
+
+            // 5. DELETE unlisted-user
+            let (mut s5, _) = listener.accept().unwrap();
+            let req5 = read_raw_http_request(&mut s5);
+            assert!(req5.starts_with(
+                "DELETE /repos/intrinsic-checklists/newhire-onboarding/collaborators/unlisted-user "
+            ));
+            write_raw_http_response(&mut s5, "204 No Content", "");
+
+            // 6. GET pending invitations -> MGR-USER kept, manual-invitee revoked
+            let (mut s6, _) = listener.accept().unwrap();
+            let req6 = read_raw_http_request(&mut s6);
+            assert!(req6.starts_with(
+                "GET /repos/intrinsic-checklists/newhire-onboarding/invitations?per_page=100&page=1 "
+            ));
+            write_raw_http_response(
+                &mut s6,
+                "200 OK",
+                r#"[{"id":55,"invitee":{"login":"manual-invitee"}},{"id":56,"invitee":{"login":"MGR-USER"}}]"#,
+            );
+
+            // 7. DELETE invitation 55
+            let (mut s7, _) = listener.accept().unwrap();
+            let req7 = read_raw_http_request(&mut s7);
+            assert!(req7.starts_with(
+                "DELETE /repos/intrinsic-checklists/newhire-onboarding/invitations/55 "
+            ));
+            write_raw_http_response(&mut s7, "204 No Content", "");
+        });
+
+        let mut cmd = get_command();
+        cmd.env("GITHUB_TOKEN", "fake-token")
+            .env("GITHUB_API_URL", format!("http://{}", addr))
+            .args(&[
+                "github",
+                "utils",
+                "setup-repo",
+                "--config-path",
+                dir.to_str().unwrap(),
+            ])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(
+                "Updated repository settings for intrinsic-checklists/newhire-onboarding",
+            ))
+            .stdout(predicate::str::contains(
+                "Removed unlisted collaborator 'unlisted-user' from intrinsic-checklists/newhire-onboarding",
+            ))
+            .stdout(predicate::str::contains(
+                "Revoked pending invitation for 'manual-invitee' on intrinsic-checklists/newhire-onboarding",
+            ))
+            .stdout(predicate::str::contains("Done 🚀"));
+
+        server.join().unwrap();
+
+        // Now set reapply_settings_after_creation: false and verify neither settings nor collaborators
+        // are updated once the repository already exists.
+        let no_reapply_yaml = config_yaml.replace(
+            "  create_if_missing: true",
+            "  create_if_missing: true\n  reapply_settings_after_creation: false",
+        );
+        std::fs::write(&config_path, no_reapply_yaml).unwrap();
+
+        let listener2 = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr2 = listener2.local_addr().unwrap();
+        let server2 = std::thread::spawn(move || {
+            let (mut s1, _) = listener2.accept().unwrap();
+            let req1 = read_raw_http_request(&mut s1);
+            assert!(req1.starts_with("GET /repos/intrinsic-checklists/newhire-onboarding "));
+            write_raw_http_response(
+                &mut s1,
+                "200 OK",
+                r#"{"id":1,"private":false,"description":"Outdated description"}"#,
+            );
+
+            listener2.set_nonblocking(true).unwrap();
+            assert!(
+                listener2.accept().is_err(),
+                "Expected no PATCH/PUT/DELETE calls when reapply_settings_after_creation is false"
+            );
+        });
+
+        let mut cmd = get_command();
+        cmd.env("GITHUB_TOKEN", "fake-token")
+            .env("GITHUB_API_URL", format!("http://{}", addr2))
+            .args(&[
+                "github",
+                "utils",
+                "setup-repo",
+                "--config-path",
+                dir.to_str().unwrap(),
+            ])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("Done 🚀"));
+
+        server2.join().unwrap();
     }
 }

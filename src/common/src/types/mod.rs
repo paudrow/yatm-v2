@@ -1,4 +1,5 @@
 mod github_label;
+mod github_repo;
 mod requirement;
 mod requirements_file;
 mod test_case;
@@ -6,6 +7,7 @@ mod test_cases_builder;
 mod test_cases_builder_file;
 
 pub use github_label::GithubLabel;
+pub use github_repo::{CollaboratorPermission, GithubCollaborator, GithubRepoSettings};
 pub use requirement::{Action, Expect, Link, Requirement, RequirementSource, Step, Terminal};
 pub use requirements_file::RequirementsFile;
 pub use test_case::TestCase;
