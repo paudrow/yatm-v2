@@ -1,0 +1,17 @@
+Overall Metrics:
+----------------------------------
+Total Issues: {{ metrics.total }}
+Open: {{ metrics.open }} ({{ metrics.open_pct_str() }}%)
+Closed Completed: {{ metrics.completed }} ({{ metrics.completed_pct_str() }}%)
+Closed Won't Fix: {{ metrics.wont_fix }} ({{ metrics.wont_fix_pct_str() }}%)
+Closed Duplicate: {{ metrics.duplicate }} ({{ metrics.duplicate_pct_str() }}%)
+{% if !permutations.is_empty() -%}
+Breakdown by Permutation Key/Value:
+----------------------------------
+{%- for perm in permutations %}
+{{ perm.key }}:
+{%- for val in perm.values %}
+  - {{ val.value }}: {{ val.closed_count }}/{{ val.total_count }} closed ({{ val.closed_pct }}%) -- Open: {{ val.open_count }} ({{ val.open_pct }}%), Closed Completed: {{ val.completed_count }} ({{ val.completed_pct }}%), Won't Fix: {{ val.wont_fix_count }} ({{ val.wont_fix_pct }}%), Duplicate: {{ val.duplicate_count }} ({{ val.duplicate_pct }}%)
+{%- endfor %}
+{%- endfor %}
+{%- endif %}
